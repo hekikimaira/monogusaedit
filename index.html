@@ -1,0 +1,4591 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>ものぐさシフトカレンダー</title>
+  
+  <!-- PWA対応 -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#3498db">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="ものぐさ">
+  <link rel="apple-touch-icon" href="icon192.png">
+  
+  <!-- OGP -->
+  <meta name="description" content="シンプルで使いやすい縦型シフトカレンダー。シフト自動入力、祝日対応、オフライン対応。">
+  <meta property="og:title" content="ものぐさシフトカレンダー">
+  <meta property="og:description" content="シンプルで使いやすい縦型シフトカレンダー">
+  <meta property="og:type" content="website">
+  
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', sans-serif;
+      background: var(--bg-color, #f0f0f0);
+      min-height: 100vh;
+    }
+
+    :root {
+      --primary-color: #3498db;
+      --header-color: #2c3e50;
+      --bg-color: #f0f0f0;
+      --card-bg: #ffffff;
+      --text-color: #333333;
+      --sub-text: #666666;
+      --font-size: 14px;
+      --input-padding: 10px 12px;
+      --row-height: 44px;
+      --memo-height: 44px;
+    }
+
+    .page {
+      display: none;
+    }
+    .page.active {
+      display: block;
+    }
+
+    .header {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: linear-gradient(135deg, var(--header-color), color-mix(in srgb, var(--header-color) 80%, white));
+      color: #fff;
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+
+    .header button {
+      background: rgba(255,255,255,0.2);
+      color: #fff;
+      border: none;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      font-size: 18px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .header button:hover {
+      background: rgba(255,255,255,0.3);
+    }
+
+    .header .year-display {
+      font-size: 24px;
+      font-weight: bold;
+      min-width: 120px;
+      text-align: center;
+      letter-spacing: 2px;
+    }
+
+    .edit-mode-btn {
+      background: rgba(255,255,255,0.2) !important;
+      width: auto !important;
+      padding: 0 16px !important;
+      font-size: 13px !important;
+      border-radius: 20px !important;
+    }
+
+    .edit-mode-btn.active {
+      background: #e74c3c !important;
+    }
+
+    .options-btn {
+      font-size: 20px !important;
+    }
+
+    .history-btn {
+      font-size: 18px !important;
+      position: relative;
+    }
+    .history-btn span {
+      font-size: 10px;
+      position: absolute;
+      top: 2px;
+      right: 2px;
+      background: #e74c3c;
+      color: white;
+      border-radius: 50%;
+      min-width: 16px;
+      height: 16px;
+      display: none;
+      align-items: center;
+      justify-content: center;
+    }
+    .history-btn span:not(:empty) { display: flex; }
+
+    /* シフト履歴オーバーレイ */
+    .shift-history-overlay {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 1000;
+      display: flex;
+      justify-content: center;
+      padding-top: 60px;
+    }
+    .shift-history-panel {
+      background: white;
+      border-radius: 12px;
+      width: 90%;
+      max-width: 500px;
+      max-height: 70vh;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    }
+    .shift-history-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 15px;
+      border-bottom: 1px solid #ddd;
+      font-weight: bold;
+      color: #333;
+    }
+    .shift-history-close {
+      background: none;
+      border: none;
+      font-size: 20px;
+      cursor: pointer;
+      color: #666;
+      padding: 5px 10px;
+    }
+    .shift-history-scroll {
+      flex: 1;
+      overflow-y: auto;
+      padding: 10px;
+    }
+    .shift-history-item {
+      background: #f9f9f9;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 10px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .shift-history-item:hover {
+      border-color: #4CAF50;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    .shift-history-date {
+      font-size: 12px;
+      color: #888;
+      margin-bottom: 4px;
+    }
+    .shift-history-type {
+      font-size: 11px;
+      color: #4CAF50;
+      margin-bottom: 4px;
+    }
+    .shift-history-preview {
+      font-size: 13px;
+      color: #333;
+    }
+
+    .container {
+      max-width: 700px;
+      margin: 0 auto;
+      background: var(--card-bg);
+      min-height: calc(100vh - 85px);
+    }
+
+    .month-header {
+      background: var(--primary-color);
+      color: #fff;
+      padding: 10px 16px;
+      font-size: 18px;
+      font-weight: bold;
+      position: sticky;
+      top: 64px;
+      z-index: 50;
+    }
+
+    .day-row {
+      display: grid;
+      grid-template-columns: 44px 36px 1fr;
+      border-bottom: 1px solid color-mix(in srgb, var(--text-color) 15%, transparent);
+      min-height: var(--row-height);
+    }
+
+    .day-date {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      font-weight: bold;
+      color: var(--text-color);
+      background: color-mix(in srgb, var(--bg-color) 50%, var(--card-bg));
+      border-right: 1px solid color-mix(in srgb, var(--text-color) 15%, transparent);
+      cursor: pointer;
+      user-select: none;
+      transition: filter 0.1s;
+    }
+
+    .day-date:active {
+      filter: brightness(0.95);
+    }
+
+    .day-weekday {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: bold;
+      color: var(--sub-text);
+      background: color-mix(in srgb, var(--bg-color) 50%, var(--card-bg));
+      border-right: 1px solid color-mix(in srgb, var(--text-color) 15%, transparent);
+      cursor: pointer;
+      user-select: none;
+      transition: filter 0.1s;
+    }
+
+    .day-weekday:active {
+      filter: brightness(0.95);
+    }
+
+    .day-row.sunday .day-date,
+    .day-row.sunday .day-weekday {
+      color: #e74c3c;
+      background: color-mix(in srgb, #e74c3c 8%, var(--card-bg));
+    }
+
+    .day-row.saturday .day-date,
+    .day-row.saturday .day-weekday {
+      color: #3498db;
+      background: color-mix(in srgb, #3498db 8%, var(--card-bg));
+    }
+
+    .day-row.holiday .day-date,
+    .day-row.holiday .day-weekday {
+      color: #e74c3c;
+      background: color-mix(in srgb, #e74c3c 8%, var(--card-bg));
+    }
+
+    .day-row.today {
+      background: color-mix(in srgb, #f1c40f 15%, var(--card-bg));
+    }
+
+    .day-row.today .day-date,
+    .day-row.today .day-weekday {
+      background: color-mix(in srgb, #f1c40f 25%, var(--card-bg));
+    }
+
+    .memos-container {
+      display: flex;
+      flex-direction: column;
+      min-height: var(--row-height);
+    }
+
+    .memo-item {
+      display: flex;
+      align-items: stretch;
+      border-bottom: 1px dashed color-mix(in srgb, var(--text-color) 10%, transparent);
+      position: relative;
+    }
+
+    .memo-item:last-child {
+      border-bottom: none;
+    }
+
+    .memo-input {
+      flex: 1;
+      padding: var(--input-padding);
+      font-size: var(--font-size);
+      border: none;
+      outline: none;
+      background: transparent;
+      min-height: var(--memo-height);
+      line-height: 1.4;
+      color: var(--text-color);
+    }
+
+    .memo-input::placeholder {
+      color: var(--sub-text);
+      opacity: 0.6;
+    }
+
+    .memo-input:focus {
+      background: color-mix(in srgb, var(--primary-color) 8%, transparent);
+    }
+
+    .memo-input.holiday-auto {
+      color: #e74c3c;
+      font-weight: 500;
+    }
+
+    .edit-mode .memo-item:first-child .memo-input {
+      background: #e8f5e9;
+      cursor: pointer;
+    }
+
+    .edit-mode .memo-item:first-child .memo-input:hover {
+      background: #c8e6c9;
+    }
+
+    .memo-menu-btn {
+      width: 32px;
+      background: transparent;
+      border: none;
+      color: #bbb;
+      font-size: 16px;
+      cursor: pointer;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+
+    .memo-item:hover .memo-menu-btn,
+    .memo-item:focus-within .memo-menu-btn {
+      opacity: 1;
+    }
+
+    .memo-menu-btn:hover {
+      color: #666;
+    }
+
+    .floating-menu {
+      position: fixed;
+      right: 16px;
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+      overflow: hidden;
+      z-index: 200;
+      display: none;
+    }
+
+    .floating-menu.show {
+      display: block;
+    }
+
+    .floating-menu button {
+      display: block;
+      width: 100%;
+      padding: 14px 24px;
+      border: none;
+      background: #fff;
+      font-size: 15px;
+      cursor: pointer;
+      text-align: left;
+    }
+
+    .floating-menu button:hover {
+      background: #f5f5f5;
+    }
+
+    .floating-menu button.add {
+      color: #27ae60;
+    }
+
+    .floating-menu button.delete {
+      color: #e74c3c;
+    }
+
+    .floating-menu button + button {
+      border-top: 1px solid #eee;
+    }
+
+    /* オプションメニュー */
+    .options-menu {
+      position: fixed;
+      top: 130px;
+      right: 16px;
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.2);
+      overflow: hidden;
+      z-index: 250;
+      display: none;
+      min-width: 200px;
+    }
+
+    .options-menu.show {
+      display: block;
+    }
+
+    .options-menu button {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      width: 100%;
+      padding: 14px 20px;
+      border: none;
+      background: #fff;
+      font-size: 15px;
+      cursor: pointer;
+      text-align: left;
+    }
+
+    .options-menu button:hover {
+      background: #f5f5f5;
+    }
+
+    .options-menu button + button {
+      border-top: 1px solid #eee;
+    }
+
+    .options-menu .icon {
+      font-size: 18px;
+    }
+
+    .overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 150;
+      display: none;
+    }
+
+    .overlay.show {
+      display: block;
+    }
+
+    .today-btn {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: var(--primary-color);
+      color: #fff;
+      border: none;
+      padding: 12px 20px;
+      border-radius: 24px;
+      font-size: 14px;
+      font-weight: bold;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(52,152,219,0.4);
+      z-index: 100;
+    }
+
+    .today-btn:hover {
+      filter: brightness(0.9);
+    }
+
+    .pattern-float-btn {
+      position: fixed;
+      bottom: 70px;
+      right: 20px;
+      background: #27ae60;
+      color: #fff;
+      border: none;
+      padding: 10px 16px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: bold;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(39,174,96,0.4);
+      z-index: 100;
+      display: none;
+    }
+
+    .pattern-float-btn.show {
+      display: block;
+    }
+
+    .pattern-float-btn:hover {
+      background: #219a52;
+    }
+
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 300;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .modal-overlay.show {
+      display: flex;
+    }
+
+    .modal {
+      background: #fff;
+      border-radius: 12px;
+      width: 100%;
+      max-width: 400px;
+      max-height: 80vh;
+      overflow: auto;
+    }
+
+    .modal-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid #eee;
+      font-size: 18px;
+      font-weight: bold;
+    }
+
+    .modal-body {
+      padding: 20px;
+    }
+
+    .modal-footer {
+      padding: 16px 20px;
+      border-top: 1px solid #eee;
+      display: flex;
+      gap: 12px;
+      justify-content: flex-end;
+    }
+
+    .modal label {
+      display: block;
+      font-size: 14px;
+      font-weight: bold;
+      margin-bottom: 8px;
+      color: #333;
+    }
+
+    .modal select,
+    .modal input[type="number"],
+    .modal input[type="text"] {
+      width: 100%;
+      padding: 12px;
+      font-size: 16px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      margin-bottom: 16px;
+    }
+
+    .modal select:focus,
+    .modal input:focus {
+      outline: none;
+      border-color: #3498db;
+    }
+
+    .modal .hint {
+      font-size: 12px;
+      color: #888;
+      margin-top: -12px;
+      margin-bottom: 16px;
+    }
+
+    .modal-btn {
+      padding: 10px 24px;
+      border: none;
+      border-radius: 6px;
+      font-size: 15px;
+      cursor: pointer;
+    }
+
+    .modal-btn.cancel {
+      background: #eee;
+      color: #333;
+    }
+
+    .modal-btn.primary {
+      background: var(--primary-color);
+      color: #fff;
+    }
+
+    .modal-btn.danger {
+      background: #e74c3c;
+      color: #fff;
+    }
+
+    .confirm-text {
+      font-size: 15px;
+      line-height: 1.6;
+      margin-bottom: 16px;
+    }
+
+    .confirm-date {
+      background: #f5f5f5;
+      padding: 12px 16px;
+      border-radius: 8px;
+      font-weight: bold;
+      text-align: center;
+      margin-bottom: 16px;
+    }
+
+    .confirm-info {
+      background: #e8f5e9;
+      padding: 12px 16px;
+      border-radius: 8px;
+      font-size: 14px;
+    }
+
+    .confirm-info div {
+      margin: 4px 0;
+    }
+
+    .edit-banner {
+      background: #27ae60;
+      color: #fff;
+      padding: 12px 16px;
+      text-align: center;
+      font-size: 14px;
+      display: none;
+    }
+
+    .edit-banner.show {
+      display: block;
+    }
+
+    .edit-banner button {
+      background: rgba(255,255,255,0.2);
+      border: none;
+      color: #fff;
+      padding: 6px 16px;
+      border-radius: 4px;
+      margin-left: 12px;
+      cursor: pointer;
+    }
+
+    /* デザイン設定 */
+    .theme-options {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 20px;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+
+    .theme-option {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px;
+      border: 2px solid #eee;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .theme-option:hover {
+      border-color: #ccc;
+    }
+
+    .theme-option.selected {
+      border-color: #333;
+      background: #f8f8f8;
+    }
+
+    .theme-preview {
+      display: flex;
+      width: 60px;
+      height: 36px;
+      border-radius: 4px;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    .theme-preview-header {
+      width: 20px;
+    }
+
+    .theme-preview-body {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .theme-preview-row {
+      flex: 1;
+      border-bottom: 1px solid rgba(0,0,0,0.1);
+    }
+
+    .theme-name {
+      font-weight: bold;
+      font-size: 14px;
+    }
+
+    .theme-desc {
+      font-size: 12px;
+      color: #888;
+    }
+
+    .design-section {
+      margin-bottom: 20px;
+    }
+
+    .design-section label {
+      display: block;
+      margin-bottom: 12px;
+    }
+
+    .size-options {
+      display: flex;
+      gap: 8px;
+    }
+
+    .size-option {
+      flex: 1;
+      padding: 10px;
+      border: 2px solid #ddd;
+      border-radius: 8px;
+      text-align: center;
+      cursor: pointer;
+      font-size: 13px;
+    }
+
+    .size-option.selected {
+      border-color: #333;
+      background: #f0f0f0;
+    }
+
+    /* 問い合わせモーダル */
+    .contact-options {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .contact-btn {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 16px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      background: #fff;
+      font-size: 16px;
+      cursor: pointer;
+      text-decoration: none;
+      color: #333;
+    }
+
+    .contact-btn:hover {
+      background: #f5f5f5;
+    }
+
+    .contact-btn .icon {
+      font-size: 24px;
+    }
+
+    /* 設定ページ */
+    .settings-page {
+      background: #fff;
+      min-height: 100vh;
+    }
+
+    .settings-header {
+      background: linear-gradient(135deg, #8e44ad, #9b59b6);
+      color: #fff;
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .settings-header h1 {
+      font-size: 20px;
+      flex: 1;
+    }
+
+    .back-btn {
+      background: rgba(255,255,255,0.2);
+      border: none;
+      color: #fff;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      font-size: 20px;
+      cursor: pointer;
+    }
+
+    .pattern-list {
+      padding: 16px;
+    }
+
+    .pattern-card {
+      background: #f8f9fa;
+      border-radius: 12px;
+      margin-bottom: 16px;
+      overflow: hidden;
+      border: 2px solid transparent;
+    }
+
+    .pattern-card.selected {
+      border-color: #27ae60;
+    }
+
+    .pattern-card-header {
+      background: #fff;
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid #eee;
+    }
+
+    .pattern-name {
+      font-size: 18px;
+      font-weight: bold;
+      color: #333;
+    }
+
+    .pattern-badge {
+      background: #27ae60;
+      color: #fff;
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 12px;
+      display: none;
+    }
+
+    .pattern-card.selected .pattern-badge {
+      display: inline-block;
+    }
+
+    .pattern-card-body {
+      padding: 16px;
+    }
+
+    .pattern-card textarea {
+      width: 100%;
+      height: 100px;
+      padding: 12px;
+      font-size: 15px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      resize: vertical;
+      font-family: inherit;
+    }
+
+    .pattern-card textarea:focus {
+      outline: none;
+      border-color: #9b59b6;
+    }
+
+    .pattern-hint {
+      font-size: 12px;
+      color: #888;
+      margin-top: 8px;
+    }
+
+    .pattern-preview {
+      margin-top: 12px;
+      padding: 10px 12px;
+      background: #fff;
+      border-radius: 6px;
+      font-size: 13px;
+      color: #666;
+    }
+
+    .pattern-preview span {
+      display: inline-block;
+      background: #e8e8e8;
+      padding: 2px 8px;
+      border-radius: 4px;
+      margin: 2px;
+    }
+
+    .settings-footer {
+      padding: 16px;
+      border-top: 1px solid #eee;
+      background: #fff;
+      position: sticky;
+      bottom: 0;
+    }
+
+    .save-all-btn {
+      width: 100%;
+      padding: 14px;
+      background: #9b59b6;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    .save-all-btn:hover {
+      background: #8e44ad;
+    }
+
+    /* トースト通知 */
+    .toast {
+      position: fixed;
+      bottom: 80px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #333;
+      color: #fff;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 14px;
+      z-index: 400;
+      display: none;
+    }
+
+    .toast.show {
+      display: block;
+      animation: fadeInOut 2s ease;
+    }
+
+    @keyframes fadeInOut {
+      0% { opacity: 0; transform: translateX(-50%) translateY(20px); }
+      15% { opacity: 1; transform: translateX(-50%) translateY(0); }
+      85% { opacity: 1; transform: translateX(-50%) translateY(0); }
+      100% { opacity: 0; transform: translateX(-50%) translateY(-20px); }
+    }
+
+    /* ファイル入力を隠す */
+    #importInput {
+      display: none;
+    }
+
+    /* PRO版特典リスト */
+    .pro-benefits {
+      background: linear-gradient(135deg, #fff9e6, #fff3cd);
+      border-radius: 8px;
+      padding: 16px;
+    }
+
+    .pro-benefit-item {
+      padding: 8px 0;
+      font-size: 15px;
+    }
+
+    .pro-benefit-item + .pro-benefit-item {
+      border-top: 1px dashed #e0d5b0;
+    }
+
+    .pro-code-box {
+      background: #f5f5f5;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 12px;
+      font-family: monospace;
+      font-size: 12px;
+      word-break: break-all;
+      text-align: center;
+      color: #333;
+    }
+
+    .pro-purchase-btn {
+      display: block;
+      width: 100%;
+      padding: 14px;
+      background: linear-gradient(135deg, #34a853, #0f9d58);
+      color: #fff;
+      text-align: center;
+      text-decoration: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: bold;
+      box-shadow: 0 2px 8px rgba(15, 157, 88, 0.3);
+    }
+
+    .pro-purchase-btn:hover {
+      filter: brightness(1.05);
+    }
+
+    /* インポートモード選択 */
+    .import-mode-options {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .import-mode-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      padding: 16px;
+      border: 2px solid #e0e0e0;
+      border-radius: 12px;
+      background: #fff;
+      cursor: pointer;
+      text-align: left;
+      transition: all 0.2s;
+    }
+
+    .import-mode-btn:hover {
+      border-color: var(--primary-color);
+      background: color-mix(in srgb, var(--primary-color) 5%, white);
+    }
+
+    .import-mode-icon {
+      font-size: 24px;
+      margin-bottom: 8px;
+    }
+
+    .import-mode-title {
+      font-size: 16px;
+      font-weight: bold;
+      color: #333;
+    }
+
+    .import-mode-desc {
+      font-size: 13px;
+      color: #666;
+      margin-top: 4px;
+    }
+
+    /* ステータスカラー設定 */
+    .status-color-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .status-color-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      background: #fff;
+    }
+
+    .status-color-preview {
+      width: 32px;
+      height: 32px;
+      border-radius: 6px;
+      border: 1px solid #ddd;
+      flex-shrink: 0;
+    }
+
+    .status-color-name {
+      flex: 1;
+      font-size: 14px;
+    }
+
+    .status-color-toggle {
+      position: relative;
+      width: 48px;
+      height: 26px;
+      background: #ddd;
+      border-radius: 13px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .status-color-toggle.on {
+      background: var(--primary-color);
+    }
+
+    .status-color-toggle::after {
+      content: '';
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      width: 20px;
+      height: 20px;
+      background: #fff;
+      border-radius: 50%;
+      transition: transform 0.2s;
+    }
+
+    .status-color-toggle.on::after {
+      transform: translateX(22px);
+    }
+
+    .status-color-item.disabled {
+      opacity: 0.5;
+    }
+
+    .status-color-item:first-child .status-color-toggle {
+      display: none;
+    }
+
+    .status-color-item:first-child::after {
+      content: '常にON';
+      font-size: 11px;
+      color: #888;
+    }
+
+    /* ========== タブナビゲーション ========== */
+    .main-tab-nav {
+      display: flex;
+      background: #2c3e50;
+      position: sticky;
+      top: 40px;
+      z-index: 1000;
+    }
+    .main-tab-btn {
+      flex: 1;
+      padding: 12px 8px;
+      border: none;
+      background: #2c3e50;
+      color: #7f8c8d;
+      font-size: 13px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.2s;
+      border-bottom: 3px solid transparent;
+    }
+    .main-tab-btn:hover { background: #34495e; color: #bdc3c7; }
+    .main-tab-btn.active { background: #34495e; color: #fff; }
+    .main-tab-btn.active.shift-tab { border-bottom-color: #3498db; }
+    .main-tab-btn.active.kakeibo-tab { border-bottom-color: #4CAF50; }
+    .main-tab-btn.active.memo-tab { border-bottom-color: #60a5fa; }
+    .main-tab-content { display: none; }
+    .main-tab-content.active { display: block; }
+
+    /* シフトタブがアクティブな時のヘッダー位置調整（認証バー32px + タブ45px = 77px） */
+    .shift-tab-content .header { top: 85px; }
+    .shift-tab-content .month-header { top: 149px; }
+    .shift-tab-content .settings-header { top: 85px; }
+
+    /* ========== 家計簿スタイル ========== */
+    .kakeibo-app { background: var(--bg-color, #f5f5f5); padding: 10px; min-height: calc(100vh - 85px); }
+    .kakeibo-container { max-width: 700px; margin: 0 auto; background: var(--card-bg, white); border: 1px solid color-mix(in srgb, var(--text-color, #333) 15%, transparent); padding: 15px; border-radius: 8px; }
+    
+    /* 家計簿 行レイアウト */
+    .kakeibo-row { display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; align-items: center; }
+    .kakeibo-name-input { 
+      flex: 1; min-width: 150px; padding: 10px 12px; font-size: var(--font-size, 14px); 
+      border: 1px solid color-mix(in srgb, var(--text-color, #333) 30%, transparent); border-radius: 6px;
+      background: var(--card-bg, white); color: var(--text-color, #333);
+    }
+    .kakeibo-name-input:focus { outline: none; border-color: var(--primary-color, #4CAF50); }
+    .kakeibo-select { padding: 10px 12px; font-size: var(--font-size, 14px); border: 1px solid color-mix(in srgb, var(--text-color, #333) 30%, transparent); border-radius: 6px; background: var(--card-bg, white); color: var(--text-color, #333); cursor: pointer; min-width: 100px; }
+    .kakeibo-select-wide { flex: 1; min-width: 150px; padding: 10px 12px; font-size: var(--font-size, 14px); border: 1px solid color-mix(in srgb, var(--text-color, #333) 30%, transparent); border-radius: 6px; background: var(--card-bg, white); color: var(--text-color, #333); cursor: pointer; }
+    .kakeibo-btn { 
+      padding: 10px 16px; font-size: var(--font-size, 14px); border: 1px solid color-mix(in srgb, var(--text-color, #333) 30%, transparent); 
+      background: var(--card-bg, white); color: var(--text-color, #333); cursor: pointer; border-radius: 6px; white-space: nowrap;
+    }
+    .kakeibo-btn:hover { background: color-mix(in srgb, var(--primary-color, #4CAF50) 10%, var(--card-bg, white)); }
+    .kakeibo-btn-primary { background: var(--primary-color, #4CAF50); color: white; border-color: var(--primary-color, #4CAF50); }
+    .kakeibo-btn-primary:hover { background: color-mix(in srgb, var(--primary-color, #4CAF50) 80%, black); }
+    .kakeibo-btn-small { padding: 6px 12px; font-size: 12px; border: 1px solid color-mix(in srgb, var(--text-color, #333) 30%, transparent); background: var(--card-bg, white); color: var(--text-color, #333); cursor: pointer; border-radius: 4px; }
+    
+    /* 履歴スライダー */
+    .kakeibo-history-slider {
+      background: color-mix(in srgb, var(--bg-color, #f5f5f5) 80%, var(--card-bg, white)); border: 1px solid color-mix(in srgb, var(--text-color, #333) 15%, transparent); border-radius: 8px;
+      margin-bottom: 15px; overflow: hidden;
+    }
+    .kakeibo-history-header {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 10px 15px; background: color-mix(in srgb, var(--primary-color, #4CAF50) 15%, var(--card-bg, white)); border-bottom: 1px solid color-mix(in srgb, var(--text-color, #333) 15%, transparent);
+      font-size: 13px; font-weight: bold; color: var(--text-color, #555);
+    }
+    .kakeibo-history-scroll {
+      display: flex; overflow-x: auto; padding: 10px; gap: 10px;
+      scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch;
+    }
+    .kakeibo-history-scroll::-webkit-scrollbar { height: 6px; }
+    .kakeibo-history-scroll::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--text-color, #333) 30%, transparent); border-radius: 3px; }
+    .kakeibo-history-item {
+      flex: 0 0 200px; scroll-snap-align: start;
+      background: var(--card-bg, white); border: 1px solid color-mix(in srgb, var(--text-color, #333) 20%, transparent); border-radius: 6px;
+      padding: 10px; cursor: pointer; transition: all 0.2s;
+    }
+    .kakeibo-history-item:hover { border-color: var(--primary-color, #4CAF50); box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    .kakeibo-history-date { font-size: 11px; color: var(--sub-text, #888); margin-bottom: 4px; }
+    .kakeibo-history-type { font-size: 10px; color: var(--primary-color, #4CAF50); margin-bottom: 4px; }
+    .kakeibo-history-balance { font-size: 14px; font-weight: bold; color: var(--text-color, #333); }
+    .kakeibo-history-name { font-size: 11px; color: var(--sub-text, #666); margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    
+    .kakeibo-app .balance { background: #ffebee; color: #c62828; padding: 12px; text-align: center; margin-bottom: 15px; font-weight: bold; font-size: 20px; cursor: pointer; border-radius: 6px; }
+    .kakeibo-app .balance.positive { background: #e8f5e9; color: #2e7d32; }
+    .kakeibo-app .section { margin-bottom: 12px; }
+    .kakeibo-app .section h3 { font-size: var(--font-size, 14px); margin-bottom: 5px; padding: 5px 0; border-bottom: 2px solid var(--primary-color, #333); color: var(--text-color, #333); }
+    .kakeibo-app textarea { width: 100%; padding: 10px; font-size: var(--font-size, 14px); font-family: monospace; border: 1px solid color-mix(in srgb, var(--text-color, #333) 30%, transparent); border-radius: 6px; resize: vertical; background: var(--card-bg, white); color: var(--text-color, #333); }
+    .kakeibo-app textarea:focus { outline: none; border-color: var(--primary-color, #4CAF50); }
+    .kakeibo-app .income-area { min-height: 100px; }
+    .kakeibo-app .expense-area { min-height: 150px; }
+    .kakeibo-app .template-area { min-height: 80px; }
+    .kakeibo-app .total { background: color-mix(in srgb, var(--bg-color, #f5f5f5) 50%, var(--card-bg, white)); padding: 8px 10px; margin-top: 5px; text-align: right; font-size: var(--font-size, 14px); font-weight: bold; border-radius: 4px; color: var(--text-color, #333); }
+    .kakeibo-app .template-buttons { display: flex; gap: 8px; margin-top: 8px; }
+    .kakeibo-app .template-buttons button { flex: 1; padding: 10px; border-radius: 6px; background: var(--card-bg, white); color: var(--text-color, #333); border: 1px solid color-mix(in srgb, var(--text-color, #333) 30%, transparent); }
+    .kakeibo-app .template-buttons button:hover { background: color-mix(in srgb, var(--primary-color, #4CAF50) 10%, var(--card-bg, white)); }
+    .kakeibo-app .help-section { border-top: 1px solid color-mix(in srgb, var(--text-color, #333) 20%, transparent); margin-top: 20px; padding-top: 15px; font-size: 12px; color: var(--sub-text, #666); }
+    .kakeibo-app .help-section h4 { margin-bottom: 8px; font-size: 13px; color: var(--text-color, #333); }
+    .kakeibo-app .help-section ul { margin-left: 20px; line-height: 1.8; }
+
+    /* ========== クラウド同期スタイル（共通） ========== */
+    .cloud-sync-row { background: color-mix(in srgb, var(--primary-color, #3498db) 10%, var(--card-bg, white)); padding: 8px; border-radius: 6px; border: 1px dashed color-mix(in srgb, var(--primary-color, #3498db) 50%, transparent); }
+    .cloud-status { font-size: 12px; color: var(--sub-text, #666); margin-left: auto; }
+    .cloud-status.success { color: #22c55e; }
+    .cloud-status.error { color: #ef4444; }
+    .cloud-status.loading { color: #f59e0b; }
+    .cloud-settings {
+      background: var(--bg-color, #f9f9f9); border: 1px solid color-mix(in srgb, var(--text-color, #333) 20%, transparent); border-radius: 8px;
+      margin-bottom: 10px; padding: 15px;
+    }
+    .cloud-settings-inner { display: flex; flex-direction: column; gap: 10px; }
+    .cloud-settings label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--sub-text, #555); }
+    .cloud-settings input {
+      padding: 8px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px;
+    }
+    .cloud-settings input:focus { outline: none; border-color: #90caf9; }
+    .cloud-settings-buttons { display: flex; gap: 8px; margin-top: 5px; }
+    .cloud-help { font-size: 11px; color: #888; margin-top: 5px; }
+    .cloud-help a { color: #2196F3; }
+
+    /* ========== Firebase認証バー ========== */
+    .firebase-auth-bar {
+      background: linear-gradient(135deg, #4285f4, #34a853);
+      padding: 8px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      font-size: 13px;
+      color: white;
+      position: sticky;
+      top: 0;
+      z-index: 1100;
+    }
+    .firebase-auth-bar.not-logged-in {
+      background: linear-gradient(135deg, #ea4335, #fbbc05);
+    }
+    .firebase-auth-bar .auth-status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex: 1;
+      min-width: 0;
+    }
+    .firebase-auth-bar .auth-status .user-email {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .firebase-auth-bar .sync-status {
+      font-size: 11px;
+      opacity: 0.9;
+    }
+    .firebase-auth-bar button {
+      background: rgba(255,255,255,0.2);
+      color: white;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 4px;
+      font-size: 12px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .firebase-auth-bar button:hover {
+      background: rgba(255,255,255,0.3);
+    }
+    .firebase-auth-bar .google-btn {
+      background: white;
+      color: #333;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .firebase-auth-bar .google-btn:hover {
+      background: #f5f5f5;
+    }
+
+    /* ========== メモスタイル（新） ========== */
+    .memo-app-new { background: var(--bg-color, #f5f5f5); padding: 10px; min-height: calc(100vh - 85px); }
+    .memo-container-new { max-width: 700px; margin: 0 auto; background: var(--card-bg, white); border: 1px solid color-mix(in srgb, var(--text-color, #333) 15%, transparent); padding: 15px; border-radius: 8px; }
+    
+    /* メモ 行レイアウト */
+    .memo-row { display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; align-items: center; }
+    .memo-name-input { 
+      flex: 1; min-width: 150px; padding: 10px 12px; font-size: var(--font-size, 14px); 
+      border: 1px solid color-mix(in srgb, var(--text-color, #333) 30%, transparent); border-radius: 6px;
+      background: var(--card-bg, white); color: var(--text-color, #333);
+    }
+    .memo-name-input:focus { outline: none; border-color: var(--primary-color, #60a5fa); }
+    .memo-select { padding: 10px 12px; font-size: var(--font-size, 14px); border: 1px solid color-mix(in srgb, var(--text-color, #333) 30%, transparent); border-radius: 6px; background: var(--card-bg, white); color: var(--text-color, #333); cursor: pointer; min-width: 100px; }
+    .memo-select-wide { flex: 1; min-width: 150px; padding: 10px 12px; font-size: var(--font-size, 14px); border: 1px solid color-mix(in srgb, var(--text-color, #333) 30%, transparent); border-radius: 6px; background: var(--card-bg, white); color: var(--text-color, #333); cursor: pointer; }
+    .memo-btn { 
+      padding: 10px 16px; font-size: var(--font-size, 14px); border: 1px solid color-mix(in srgb, var(--text-color, #333) 30%, transparent); 
+      background: var(--card-bg, white); color: var(--text-color, #333); cursor: pointer; border-radius: 6px; white-space: nowrap;
+    }
+    .memo-btn:hover { background: color-mix(in srgb, var(--primary-color, #60a5fa) 10%, var(--card-bg, white)); }
+    .memo-btn-primary { background: var(--primary-color, #60a5fa); color: white; border-color: var(--primary-color, #60a5fa); }
+    .memo-btn-primary:hover { background: color-mix(in srgb, var(--primary-color, #60a5fa) 80%, black); }
+    .memo-btn-small { padding: 6px 12px; font-size: 12px; border: 1px solid color-mix(in srgb, var(--text-color, #333) 30%, transparent); background: var(--card-bg, white); color: var(--text-color, #333); cursor: pointer; border-radius: 4px; }
+    .memo-btn-clear { margin-left: auto; }
+    
+    /* メモ履歴スライダー */
+    .memo-history-slider {
+      background: color-mix(in srgb, var(--bg-color, #f5f5f5) 80%, var(--card-bg, white)); border: 1px solid color-mix(in srgb, var(--text-color, #333) 15%, transparent); border-radius: 8px;
+      margin-bottom: 15px; overflow: hidden;
+    }
+    .memo-history-header {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 10px 15px; background: color-mix(in srgb, var(--primary-color, #60a5fa) 15%, var(--card-bg, white)); border-bottom: 1px solid color-mix(in srgb, var(--text-color, #333) 15%, transparent);
+      font-size: 13px; font-weight: bold; color: var(--text-color, #555);
+    }
+    .memo-history-scroll {
+      display: flex; overflow-x: auto; padding: 10px; gap: 10px;
+      scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch;
+    }
+    .memo-history-scroll::-webkit-scrollbar { height: 6px; }
+    .memo-history-scroll::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--text-color, #333) 30%, transparent); border-radius: 3px; }
+    .memo-history-item {
+      flex: 0 0 200px; scroll-snap-align: start;
+      background: var(--card-bg, white); border: 1px solid color-mix(in srgb, var(--text-color, #333) 20%, transparent); border-radius: 6px;
+      padding: 10px; cursor: pointer; transition: all 0.2s;
+    }
+    .memo-history-item:hover { border-color: var(--primary-color, #60a5fa); box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    .memo-history-date { font-size: 11px; color: var(--sub-text, #888); margin-bottom: 4px; }
+    .memo-history-type { font-size: 10px; color: var(--primary-color, #60a5fa); margin-bottom: 4px; }
+    .memo-history-preview { font-size: 12px; color: var(--text-color, #333); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .memo-history-name { font-size: 11px; color: var(--sub-text, #666); margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    
+    /* メモ色変更ボタン */
+    .memo-color-row { margin-bottom: 10px; }
+    .memo-color-label { font-size: 13px; color: var(--sub-text, #666); margin-right: 4px; }
+    .memo-color-btn {
+      padding: 6px 14px; font-size: 13px; border: 2px solid color-mix(in srgb, var(--text-color, #333) 20%, transparent); border-radius: 6px;
+      background: var(--card-bg, white); cursor: pointer; font-weight: bold; transition: all 0.2s;
+    }
+    .memo-color-btn.memo-color-red { color: #dc2626; }
+    .memo-color-btn.memo-color-red:hover, .memo-color-btn.memo-color-red.active { background: #dc2626; color: white; border-color: #dc2626; }
+    .memo-color-btn.memo-color-blue { color: #2563eb; }
+    .memo-color-btn.memo-color-blue:hover, .memo-color-btn.memo-color-blue.active { background: #2563eb; color: white; border-color: #2563eb; }
+    .memo-color-btn.memo-color-green { color: #16a34a; }
+    .memo-color-btn.memo-color-green:hover, .memo-color-btn.memo-color-green.active { background: #16a34a; color: white; border-color: #16a34a; }
+    .memo-color-btn.memo-color-black { color: var(--text-color, #333); }
+    .memo-color-btn.memo-color-black:hover, .memo-color-btn.memo-color-black.active { background: var(--text-color, #333); color: var(--card-bg, white); border-color: var(--text-color, #333); }
+    
+    /* メモエディタ */
+    .memo-editor-wrapper { border: 1px solid color-mix(in srgb, var(--text-color, #333) 30%, transparent); border-radius: 6px; overflow: hidden; }
+    .memo-editor {
+      width: 100%; min-height: calc(100vh - 380px); padding: 15px;
+      border: none; outline: none; font-size: var(--font-size, 15px); line-height: 1.8;
+      background: var(--card-bg, #fff); color: var(--text-color, #222);
+    }
+    .memo-editor[data-empty="true"]:before { content: 'ここにメモを入力...'; color: var(--sub-text, #aaa); pointer-events: none; }
+    .memo-editor:focus[data-empty="true"]:before { content: ''; }
+    
+    /* メモ保存ステータス */
+    .memo-save-status { font-size: 12px; color: var(--sub-text, #888); }
+    .memo-save-status.saving { color: #d97706; }
+    .memo-save-status.saved { color: #22c55e; }
+    
+    /* メモヘルプセクション */
+    .memo-help-section { border-top: 1px solid color-mix(in srgb, var(--text-color, #333) 20%, transparent); margin-top: 15px; padding-top: 12px; font-size: 12px; color: var(--sub-text, #666); }
+    .memo-help-section h4 { margin-bottom: 6px; font-size: 13px; color: var(--text-color, #333); }
+    .memo-help-section ul { margin-left: 20px; line-height: 1.8; }
+    .memo-help-section a { color: var(--primary-color, #2196F3); }
+  </style>
+</head>
+<body>
+  <!-- ========== Firebase認証バー ========== -->
+  <div class="firebase-auth-bar not-logged-in" id="firebaseAuthBar">
+    <div class="auth-status">
+      <span>⚠️</span>
+      <span id="authStatusText">バックアップ未設定</span>
+      <span class="sync-status" id="syncStatus"></span>
+    </div>
+    <button class="google-btn" id="authButton" onclick="FirebaseSync.toggleAuth()">
+      <svg width="16" height="16" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+      Googleでログイン
+    </button>
+  </div>
+
+  <!-- ========== タブナビゲーション ========== -->
+  <nav class="main-tab-nav">
+    <button class="main-tab-btn shift-tab active" onclick="switchMainTab('shift')">📅 シフト</button>
+    <button class="main-tab-btn kakeibo-tab" onclick="switchMainTab('kakeibo')">💰 家計簿</button>
+    <button class="main-tab-btn memo-tab" onclick="switchMainTab('memo')">📝 メモ</button>
+  </nav>
+
+  <!-- ========== シフトカレンダータブ ========== -->
+  <div id="shift-tab" class="main-tab-content shift-tab-content active">
+
+  <!-- ========== 設定値（ここを変更してください） ========== -->
+  <script>
+    // 問い合わせ先設定
+    const CONTACT_EMAIL = 'your-email@example.com';  // ← メールアドレスをここに
+    const CONTACT_FORM_URL = 'https://forms.gle/xxxxx';  // ← GoogleフォームURLをここに
+    
+    // PRO認証API（Google Apps ScriptのデプロイURL）
+    const PRO_API_URL = 'https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec';  // ← GASのURLをここに
+    
+    // PRO認証コード（予定欄に入力）
+    const PRO_CODE = 'pro32756591473826593614723936';
+    
+    // デバッグモード起動コード（予定欄に入力）
+    const DEBUG_CODE = 'annko626206238506900';
+  </script>
+
+  <!-- ========== メインページ ========== -->
+  <div class="page active" id="mainPage">
+    <div class="header">
+      <button onclick="changeYear(-1)">◀</button>
+      <div class="year-display" id="yearDisplay">2026年</div>
+      <button onclick="changeYear(1)">▶</button>
+      <button class="edit-mode-btn" id="editModeBtn" onclick="toggleEditMode()">シフト</button>
+      <button class="history-btn" onclick="ShiftHistory.toggle()">📜<span id="shiftHistoryCount"></span></button>
+      <button class="options-btn" onclick="toggleOptionsMenu()">⚙️</button>
+    </div>
+
+    <!-- シフト履歴オーバーレイ -->
+    <div class="shift-history-overlay" id="shiftHistoryOverlay" style="display:none;">
+      <div class="shift-history-panel">
+        <div class="shift-history-header">
+          <span>更新履歴（100件まで）</span>
+          <button class="shift-history-close" onclick="ShiftHistory.toggle()">✕</button>
+        </div>
+        <div class="shift-history-scroll" id="shiftHistoryScroll"></div>
+      </div>
+    </div>
+
+    <div class="edit-banner" id="editBanner">
+      📅 シフト挿入モード：開始する日をタップ
+    </div>
+
+    <div class="container" id="container"></div>
+
+    <div class="overlay" id="overlay" onclick="closeAllMenus()"></div>
+    
+    <div class="floating-menu" id="floatingMenu">
+      <button class="add" onclick="addMemo()">＋ 追加</button>
+      <button onclick="copyMemo()">📋 コピー</button>
+      <button class="delete" onclick="deleteMemo()">削除</button>
+    </div>
+
+    <!-- オプションメニュー -->
+    <div class="options-menu" id="optionsMenu">
+      <button onclick="openDesignModal()"><span class="icon">🎨</span>デザイン変更</button>
+      <button onclick="openStatusColorModal()"><span class="icon">🎯</span>ステータス色設定</button>
+      <button onclick="triggerImport()"><span class="icon">📁</span>インポート</button>
+      <button onclick="exportData()"><span class="icon">📤</span>エクスポート</button>
+      <button onclick="updateHolidays()"><span class="icon">🔄</span>祝日を更新</button>
+      <button onclick="openContactModal()"><span class="icon">✉️</span>お問い合わせ</button>
+      <button id="proMenuItem" onclick="openProModal()"><span class="icon">✨</span>PRO版</button>
+    </div>
+
+    <button class="today-btn" onclick="goToToday()">今日</button>
+    <button class="pattern-float-btn" id="patternFloatBtn" onclick="openSettingsPage()">パターン設定</button>
+
+    <input type="file" id="importInput" accept=".json" onchange="handleImport(event)">
+
+    <!-- シフト挿入設定モーダル -->
+    <div class="modal-overlay" id="shiftSelectModal">
+      <div class="modal">
+        <div class="modal-header">シフト挿入設定</div>
+        <div class="modal-body">
+          <label>使用するパターン</label>
+          <select id="patternSelect" onchange="updateStartPositionOptions()">
+            <option value="0">パターンA</option>
+            <option value="1">パターンB</option>
+            <option value="2">パターンC</option>
+            <option value="3">パターンD</option>
+          </select>
+
+          <label>開始位置</label>
+          <select id="startPosition"></select>
+          <div class="hint">パターンの何番目から始めるか</div>
+
+          <label>繰り返し回数</label>
+          <input type="number" id="repeatCount" value="1" min="1" max="100">
+          <div class="hint">パターンを何回繰り返すか（1回 = パターン1周分）</div>
+        </div>
+        <div class="modal-footer">
+          <button class="modal-btn cancel" onclick="closeShiftSelectModal()">キャンセル</button>
+          <button class="modal-btn primary" onclick="confirmShiftSettings()">次へ</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- シフト挿入確認モーダル -->
+    <div class="modal-overlay" id="confirmModal">
+      <div class="modal">
+        <div class="modal-header">シフト挿入確認</div>
+        <div class="modal-body">
+          <div class="confirm-text">この日からシフトを挿入しますか？</div>
+          <div class="confirm-date" id="confirmDate">2026年1月1日</div>
+          <div class="confirm-info">
+            <div>📋 パターン: <strong id="confirmPattern">A</strong></div>
+            <div>▶️ 開始位置: <strong id="confirmStartPos">1番目</strong></div>
+            <div>🔁 繰り返し: <strong id="confirmRepeat">1</strong>回</div>
+            <div>📅 挿入日数: <strong id="confirmDays">5</strong>日分</div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="modal-btn cancel" onclick="closeConfirmModal()">キャンセル</button>
+          <button class="modal-btn danger" onclick="executeShiftInsert()">挿入する</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- デザイン設定モーダル -->
+    <div class="modal-overlay" id="designModal">
+      <div class="modal">
+        <div class="modal-header">デザイン変更</div>
+        <div class="modal-body">
+          <div class="design-section">
+            <label>テーマ</label>
+            <div class="theme-options" id="themeOptions"></div>
+          </div>
+
+          <div class="design-section">
+            <label>文字サイズ</label>
+            <div class="size-options">
+              <div class="size-option" data-size="small" onclick="selectSize(this)">小</div>
+              <div class="size-option" data-size="medium" onclick="selectSize(this)">中</div>
+              <div class="size-option" data-size="large" onclick="selectSize(this)">大</div>
+            </div>
+          </div>
+
+          <div class="design-section">
+            <label>行の高さ</label>
+            <div class="size-options">
+              <div class="size-option" data-height="compact" onclick="selectHeight(this)">狭い</div>
+              <div class="size-option" data-height="normal" onclick="selectHeight(this)">普通</div>
+              <div class="size-option" data-height="relaxed" onclick="selectHeight(this)">広い</div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="modal-btn cancel" onclick="closeDesignModal()">キャンセル</button>
+          <button class="modal-btn primary" onclick="saveDesign()">保存</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ステータスカラー設定モーダル -->
+    <div class="modal-overlay" id="statusColorModal">
+      <div class="modal">
+        <div class="modal-header">🎯 ステータス色設定</div>
+        <div class="modal-body">
+          <p style="font-size: 13px; color: #666; margin-bottom: 16px;">日付/曜日をタップすると、ONの色が順番に切り替わります</p>
+          <div class="status-color-list" id="statusColorList"></div>
+        </div>
+        <div class="modal-footer">
+          <button class="modal-btn cancel" onclick="closeStatusColorModal()">キャンセル</button>
+          <button class="modal-btn primary" onclick="saveStatusColorSettings()">保存</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- インポートモード選択モーダル -->
+    <div class="modal-overlay" id="importModeModal">
+      <div class="modal">
+        <div class="modal-header">📁 インポート方法を選択</div>
+        <div class="modal-body">
+          <div class="import-mode-options">
+            <button class="import-mode-btn" onclick="executeImport('diff')">
+              <span class="import-mode-icon">🔄</span>
+              <span class="import-mode-title">差分変更</span>
+              <span class="import-mode-desc">既存データと異なる部分のみ上書き更新</span>
+            </button>
+            <button class="import-mode-btn" onclick="executeImport('append')">
+              <span class="import-mode-icon">➕</span>
+              <span class="import-mode-title">新規追加</span>
+              <span class="import-mode-desc">既存データの後ろに新しい枠として追加</span>
+            </button>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="modal-btn cancel" onclick="closeImportModeModal()">キャンセル</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 問い合わせモーダル -->
+    <div class="modal-overlay" id="contactModal">
+      <div class="modal">
+        <div class="modal-header">お問い合わせ</div>
+        <div class="modal-body">
+          <div class="contact-options">
+            <a class="contact-btn" id="contactEmail" href="#">
+              <span class="icon">✉️</span>
+              <span>メールで連絡</span>
+            </a>
+            <a class="contact-btn" id="contactForm" href="#" target="_blank">
+              <span class="icon">📝</span>
+              <span>フォームで連絡</span>
+            </a>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="modal-btn cancel" onclick="closeContactModal()">閉じる</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- PRO版モーダル（未認証時） -->
+    <div class="modal-overlay" id="proModal">
+      <div class="modal">
+        <div class="modal-header">✨ PRO版</div>
+        <div class="modal-body">
+          <div class="pro-benefits">
+            <div class="pro-benefit-item">💖 開発者への応援</div>
+            <div class="pro-benefit-item">🚀 今後のアップデート支援</div>
+            <div class="pro-benefit-item">🔑 1つ買えば全アプリ対応</div>
+          </div>
+          <p style="font-size: 13px; color: #888; margin-top: 16px; line-height: 1.5; text-align: center;">
+            PRO版は機能追加ではありません。<br>開発者への応援です。
+          </p>
+          <div style="margin-top: 20px;">
+            <p style="font-size: 14px; color: #666; margin-bottom: 12px; line-height: 1.6;">
+              「HK-Key」アプリを購入すると、<br>認証コードが発行されます。
+            </p>
+            <a href="https://play.google.com/store/apps/details?id=com.kusenokimera.hkkey" target="_blank" class="pro-purchase-btn">
+              Google Playで購入
+            </a>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="modal-btn cancel" onclick="closeProModal()">閉じる</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- PRO版モーダル（認証済み） -->
+    <div class="modal-overlay" id="proThanksModal">
+      <div class="modal">
+        <div class="modal-header">🎉 PRO版</div>
+        <div class="modal-body" style="text-align: center;">
+          <div style="font-size: 48px; margin-bottom: 16px;">💖</div>
+          <p style="font-size: 18px; font-weight: bold; margin-bottom: 12px;">ありがとうございます！</p>
+          <p style="font-size: 14px; color: #666; line-height: 1.6;">
+            PRO版をご利用いただき<br>心より感謝申し上げます。<br><br>
+            今後もより良いアプリを目指して<br>開発を続けてまいります。
+          </p>
+        </div>
+        <div class="modal-footer">
+          <button class="modal-btn primary" onclick="closeProThanksModal()">閉じる</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- デバッグモーダル -->
+    <div class="modal-overlay" id="debugModal">
+      <div class="modal">
+        <div class="modal-header">🔧 デバッグモード</div>
+        <div class="modal-body">
+          <div style="margin-bottom: 16px;">
+            <label>PRO版ステータス</label>
+            <div style="display: flex; gap: 12px; margin-top: 8px;">
+              <button class="modal-btn primary" onclick="toggleProStatus(true)">PRO ON</button>
+              <button class="modal-btn cancel" onclick="toggleProStatus(false)">PRO OFF</button>
+            </div>
+            <div id="proStatusDisplay" style="margin-top: 8px; font-size: 14px;"></div>
+          </div>
+          <div style="margin-bottom: 16px;">
+            <label>キャッシュ削除</label>
+            <div style="display: flex; gap: 12px; margin-top: 8px;">
+              <button class="modal-btn danger" onclick="clearServiceWorkerCache()">SW キャッシュ削除</button>
+              <button class="modal-btn danger" onclick="clearAllData()">全データ削除</button>
+            </div>
+            <div style="margin-top: 8px; font-size: 12px; color: #888;">※全データ削除は予定・設定が全て消えます</div>
+          </div>
+          <div>
+            <label>デバッグログ</label>
+            <textarea id="debugLogOutput" readonly style="width:100%; height:150px; font-size:12px; font-family:monospace; margin-top:8px;"></textarea>
+            <button class="modal-btn cancel" style="margin-top:8px; width:100%;" onclick="copyDebugLog()">ログをコピー</button>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="modal-btn cancel" onclick="closeDebugModal()">閉じる</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== パターン設定ページ ========== -->
+  <div class="page" id="settingsPage">
+    <div class="settings-header">
+      <button class="back-btn" onclick="closeSettingsPage()">←</button>
+      <h1>シフトパターン設定</h1>
+    </div>
+
+    <div class="pattern-list" id="patternList"></div>
+
+    <div class="settings-footer">
+      <button class="save-all-btn" onclick="saveAllPatterns()">保存してカレンダーに戻る</button>
+    </div>
+  </div>
+
+  <!-- トースト通知 -->
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const WEEKDAYS = ['日', '月', '火', '水', '木', '金', '土'];
+    const PATTERN_NAMES = ['パターンA', 'パターンB', 'パターンC', 'パターンD'];
+    const PATTERN_COLORS = ['#3498db', '#27ae60', '#e67e22', '#9b59b6'];
+
+    // ========== 祝日取得 ==========
+    let holidaysCache = {};
+
+    // holidays-jp APIから祝日を取得
+    async function fetchHolidaysFromAPI() {
+      try {
+        const response = await fetch('https://holidays-jp.github.io/api/v1/date.json');
+        if (!response.ok) throw new Error('API error');
+        const data = await response.json();
+        // キャッシュに保存
+        localStorage.setItem('holidaysCache', JSON.stringify({
+          data: data,
+          fetchedAt: Date.now()
+        }));
+        return data;
+      } catch (e) {
+        console.log('API取得失敗、キャッシュまたは計算式を使用');
+        return null;
+      }
+    }
+
+    // キャッシュから祝日を取得
+    function getHolidaysFromCache() {
+      const cached = localStorage.getItem('holidaysCache');
+      if (cached) {
+        const { data } = JSON.parse(cached);
+        return data;
+      }
+      return null;
+    }
+
+    // 計算式による祝日（フォールバック）
+    function calculateHolidays(year) {
+      const holidays = {};
+      
+      holidays[`${year}-01-01`] = '元日';
+      holidays[`${year}-02-11`] = '建国記念の日';
+      holidays[`${year}-02-23`] = '天皇誕生日';
+      holidays[`${year}-04-29`] = '昭和の日';
+      holidays[`${year}-05-03`] = '憲法記念日';
+      holidays[`${year}-05-04`] = 'みどりの日';
+      holidays[`${year}-05-05`] = 'こどもの日';
+      holidays[`${year}-08-11`] = '山の日';
+      holidays[`${year}-11-03`] = '文化の日';
+      holidays[`${year}-11-23`] = '勤労感謝の日';
+      
+      const pad = n => String(n).padStart(2, '0');
+      holidays[`${year}-01-${pad(getNthWeekday(year, 0, 1, 2))}`] = '成人の日';
+      holidays[`${year}-07-${pad(getNthWeekday(year, 6, 1, 3))}`] = '海の日';
+      holidays[`${year}-09-${pad(getNthWeekday(year, 8, 1, 3))}`] = '敬老の日';
+      holidays[`${year}-10-${pad(getNthWeekday(year, 9, 1, 2))}`] = 'スポーツの日';
+      
+      const shunbun = Math.floor(20.8431 + 0.242194 * (year - 1980) - Math.floor((year - 1980) / 4));
+      holidays[`${year}-03-${pad(shunbun)}`] = '春分の日';
+      
+      const shubun = Math.floor(23.2488 + 0.242194 * (year - 1980) - Math.floor((year - 1980) / 4));
+      holidays[`${year}-09-${pad(shubun)}`] = '秋分の日';
+      
+      return holidays;
+    }
+    
+    function getNthWeekday(year, month, weekday, n) {
+      let count = 0;
+      for (let day = 1; day <= 31; day++) {
+        const date = new Date(year, month, day);
+        if (date.getMonth() !== month) break;
+        if (date.getDay() === weekday) {
+          count++;
+          if (count === n) return day;
+        }
+      }
+      return null;
+    }
+
+    // 年の祝日を取得（APIキャッシュ優先、なければ計算式）
+    function getHolidays(year) {
+      const apiHolidays = getHolidaysFromCache();
+      if (apiHolidays) {
+        // APIデータから該当年を抽出
+        const holidays = {};
+        const yearStr = String(year);
+        for (const [date, name] of Object.entries(apiHolidays)) {
+          if (date.startsWith(yearStr)) {
+            holidays[date] = name;
+          }
+        }
+        if (Object.keys(holidays).length > 0) {
+          return holidays;
+        }
+      }
+      // フォールバック
+      return calculateHolidays(year);
+    }
+
+    // 祝日を手動更新
+    async function updateHolidays() {
+      closeOptionsMenu();
+      showToast('祝日を更新中...');
+      const data = await fetchHolidaysFromAPI();
+      if (data) {
+        holidays = getHolidays(currentYear);
+        renderSchedule();
+        showToast('祝日を更新しました！');
+      } else {
+        showToast('更新失敗（オフライン？）');
+      }
+    }
+
+    let currentYear = new Date().getFullYear();
+    let memoData = {};
+    let holidays = {};
+    let activeMenuTarget = null;
+    let editMode = false;
+    
+    let shiftPatterns = [
+      ['A', '-', 'B', '-', '◯'],
+      ['日勤', '夜勤', '明け', '休み'],
+      ['早番', '遅番', '休み'],
+      ['1', '2', '3', '4', '5', '休', '休']
+    ];
+    
+    let selectedPatternIndex = 0;
+    let selectedRepeatCount = 1;
+    let selectedStartPosition = 0;
+    let pendingShiftStart = null;
+    const MAX_PATTERN_ITEMS = 90;
+
+    // PRO版関連
+    let isPro = false;
+
+    // デバッグログ
+    let debugLog = [];
+
+    // ステータスカラー設定
+    const STATUS_COLORS = [
+      { id: 'none', color: 'transparent', name: '無色', enabled: true },
+      { id: 'red', color: '#ffebee', name: '赤（未完了）', enabled: true },
+      { id: 'yellow', color: '#fffde7', name: '黄（進行中）', enabled: true },
+      { id: 'green', color: '#e8f5e9', name: '緑（完了）', enabled: true },
+      { id: 'blue', color: '#e3f2fd', name: '青（予定）', enabled: true },
+      { id: 'purple', color: '#f3e5f5', name: '紫（保留）', enabled: true },
+    ];
+
+    let statusColorSettings = STATUS_COLORS.map(c => ({ id: c.id, enabled: c.enabled }));
+    let dayStatusColors = {}; // { '2026-1-15': 'green', ... }
+
+    // デザイン設定
+    const THEMES = [
+      { id: 'light', name: 'ライト', desc: '明るくシンプル', header: '#3498db', primary: '#3498db', bg: '#f5f5f5', cardBg: '#ffffff', text: '#333333', subText: '#666666' },
+      { id: 'dark', name: 'ダーク', desc: '目に優しい暗色', header: '#1a1a2e', primary: '#4a69bd', bg: '#16213e', cardBg: '#1a1a2e', text: '#eaeaea', subText: '#a0a0a0' },
+      { id: 'chic', name: 'シック', desc: '落ち着いた大人向け', header: '#2c3e50', primary: '#34495e', bg: '#ecf0f1', cardBg: '#ffffff', text: '#2c3e50', subText: '#7f8c8d' },
+      { id: 'nature', name: 'ナチュラル', desc: '自然で温かみ', header: '#27ae60', primary: '#2ecc71', bg: '#f0f9f4', cardBg: '#ffffff', text: '#2d3436', subText: '#636e72' },
+      { id: 'ocean', name: 'オーシャン', desc: '爽やかな海色', header: '#0984e3', primary: '#74b9ff', bg: '#e8f4fd', cardBg: '#ffffff', text: '#2d3436', subText: '#636e72' },
+      { id: 'sunset', name: 'サンセット', desc: '暖かい夕暮れ', header: '#e17055', primary: '#fab1a0', bg: '#fef5f3', cardBg: '#ffffff', text: '#2d3436', subText: '#636e72' },
+      { id: 'lavender', name: 'ラベンダー', desc: '優しい紫', header: '#6c5ce7', primary: '#a29bfe', bg: '#f5f3ff', cardBg: '#ffffff', text: '#2d3436', subText: '#636e72' },
+      { id: 'monochrome', name: 'モノクロ', desc: 'シンプル白黒', header: '#2d3436', primary: '#636e72', bg: '#f5f5f5', cardBg: '#ffffff', text: '#2d3436', subText: '#636e72' },
+      { id: 'sakura', name: 'サクラ', desc: '春の桜色', header: '#ff6b81', primary: '#ff9ff3', bg: '#fff5f7', cardBg: '#ffffff', text: '#2d3436', subText: '#636e72' },
+      { id: 'midnight', name: 'ミッドナイト', desc: '深夜の静寂', header: '#0c0c1e', primary: '#5f27cd', bg: '#1e1e2f', cardBg: '#2a2a3d', text: '#e0e0e0', subText: '#9090a0' },
+    ];
+
+    const SIZE_CONFIG = {
+      small: { fontSize: '12px', inputPadding: '8px 10px' },
+      medium: { fontSize: '14px', inputPadding: '10px 12px' },
+      large: { fontSize: '16px', inputPadding: '12px 14px' }
+    };
+
+    const HEIGHT_CONFIG = {
+      compact: { rowHeight: '38px', memoHeight: '38px' },
+      normal: { rowHeight: '44px', memoHeight: '44px' },
+      relaxed: { rowHeight: '52px', memoHeight: '52px' }
+    };
+
+    let designSettings = {
+      theme: 'light',
+      size: 'medium',
+      height: 'normal'
+    };
+
+    // ========== IndexedDB ==========
+    const DB_NAME = 'MonogusaScheduleDB';
+    const DB_VERSION = 1;
+    const STORE_NAME = 'appData';
+    let db = null;
+
+    // DB初期化
+    function initDB() {
+      return new Promise((resolve, reject) => {
+        const request = indexedDB.open(DB_NAME, DB_VERSION);
+        
+        request.onerror = () => {
+          addDebugLog('IndexedDB初期化失敗');
+          reject(request.error);
+        };
+        
+        request.onsuccess = () => {
+          db = request.result;
+          addDebugLog('IndexedDB初期化成功');
+          resolve(db);
+        };
+        
+        request.onupgradeneeded = (event) => {
+          const database = event.target.result;
+          if (!database.objectStoreNames.contains(STORE_NAME)) {
+            database.createObjectStore(STORE_NAME, { keyPath: 'id' });
+            addDebugLog('IndexedDBストア作成');
+          }
+        };
+      });
+    }
+
+    // IndexedDBからデータ読み込み
+    function loadFromDB(key) {
+      return new Promise((resolve, reject) => {
+        if (!db) {
+          resolve(null);
+          return;
+        }
+        const transaction = db.transaction([STORE_NAME], 'readonly');
+        const store = transaction.objectStore(STORE_NAME);
+        const request = store.get(key);
+        
+        request.onsuccess = () => resolve(request.result?.data || null);
+        request.onerror = () => reject(request.error);
+      });
+    }
+
+    // IndexedDBにデータ保存
+    function saveToDB(key, data) {
+      return new Promise((resolve, reject) => {
+        if (!db) {
+          reject(new Error('DB not initialized'));
+          return;
+        }
+        const transaction = db.transaction([STORE_NAME], 'readwrite');
+        const store = transaction.objectStore(STORE_NAME);
+        const request = store.put({ id: key, data: data });
+        
+        request.onsuccess = () => resolve();
+        request.onerror = () => reject(request.error);
+      });
+    }
+
+    // IndexedDBからデータ削除
+    function deleteFromDB(key) {
+      return new Promise((resolve, reject) => {
+        if (!db) {
+          resolve();
+          return;
+        }
+        const transaction = db.transaction([STORE_NAME], 'readwrite');
+        const store = transaction.objectStore(STORE_NAME);
+        const request = store.delete(key);
+        request.onsuccess = () => resolve();
+        request.onerror = () => reject(request.error);
+      });
+    }
+
+    // IndexedDBから指定プレフィックスのキーを全取得
+    function getAllKeysFromDB(prefix) {
+      return new Promise((resolve, reject) => {
+        if (!db) {
+          resolve([]);
+          return;
+        }
+        const transaction = db.transaction([STORE_NAME], 'readonly');
+        const store = transaction.objectStore(STORE_NAME);
+        const request = store.getAllKeys();
+        request.onsuccess = () => {
+          const keys = request.result.filter(k => k.startsWith(prefix));
+          resolve(keys);
+        };
+        request.onerror = () => reject(request.error);
+      });
+    }
+
+    // LocalStorageから移行
+    async function migrateFromLocalStorage() {
+      const oldData = localStorage.getItem('scheduleData_v5');
+      if (oldData) {
+        try {
+          const data = JSON.parse(oldData);
+          await saveToDB('scheduleData', data);
+          localStorage.removeItem('scheduleData_v5');
+          addDebugLog('LocalStorage→IndexedDB移行完了');
+        } catch (e) {
+          addDebugLog('移行エラー: ' + e.message);
+        }
+      }
+    }
+
+    // データ読み込み（非同期）
+    async function loadData() {
+      try {
+        await initDB();
+        await migrateFromLocalStorage();
+        
+        const data = await loadFromDB('scheduleData');
+        if (data) {
+          memoData = data.memos || {};
+          currentYear = data.lastYear || new Date().getFullYear();
+          shiftPatterns = data.shiftPatterns || shiftPatterns;
+          designSettings = data.designSettings || designSettings;
+          isPro = data.isPro || false;
+          statusColorSettings = data.statusColorSettings || statusColorSettings;
+          dayStatusColors = data.dayStatusColors || {};
+        }
+        
+        // PRO状態はLocalStorageにも保持（他アプリと共有用）
+        const proCode = localStorage.getItem('ntrr_pro_code');
+        if (proCode) isPro = true;
+        
+      } catch (e) {
+        addDebugLog('データ読み込みエラー: ' + e.message);
+      }
+      
+      applyDesign();
+      updateProUI();
+      addDebugLog('データ読み込み完了');
+    }
+
+    // ========== シフト履歴管理 ==========
+    const ShiftHistory = {
+      history: [],
+      saveTimeout: null,
+      visible: false,
+      
+      async load() {
+        this.history = await loadFromDB('shift_history') || [];
+        this.updateCount();
+      },
+      async save() {
+        while (this.history.length > 100) this.history.pop();
+        await saveToDB('shift_history', this.history);
+        this.updateCount();
+        if (this.visible) this.render();
+      },
+      updateCount() {
+        const el = document.getElementById('shiftHistoryCount');
+        el.textContent = this.history.length > 0 ? this.history.length : '';
+      },
+      async addHistory(type) {
+        const data = {
+          memos: JSON.parse(JSON.stringify(memoData)),
+          shiftPatterns: JSON.parse(JSON.stringify(shiftPatterns)),
+          dayStatusColors: JSON.parse(JSON.stringify(dayStatusColors))
+        };
+        // 前回との差分を検出
+        const prevMemos = this.history.length > 0 ? this.history[0].data.memos : {};
+        const changedKeys = [];
+        // 変更・追加された日
+        for (const key in data.memos) {
+          const curr = (data.memos[key] || []).join('|');
+          const prev = (prevMemos[key] || []).join('|');
+          if (curr !== prev && data.memos[key].some(m => m && m.trim())) {
+            changedKeys.push(key);
+          }
+        }
+        // 削除された日
+        for (const key in prevMemos) {
+          if (!data.memos[key] && prevMemos[key].some(m => m && m.trim())) {
+            changedKeys.push(key);
+          }
+        }
+        // 変更がなければスキップ
+        if (changedKeys.length === 0) return;
+        this.history.unshift({
+          date: new Date().toISOString(),
+          type: type,
+          changedKeys: changedKeys,
+          data: data
+        });
+        await this.save();
+      },
+      scheduleBackup() {
+        clearTimeout(this.saveTimeout);
+        this.saveTimeout = setTimeout(() => this.addHistory('input'), 500);
+      },
+      toggle() {
+        this.visible = !this.visible;
+        const overlay = document.getElementById('shiftHistoryOverlay');
+        overlay.style.display = this.visible ? 'flex' : 'none';
+        if (this.visible) this.render();
+      },
+      render() {
+        const scroll = document.getElementById('shiftHistoryScroll');
+        if (this.history.length === 0) {
+          scroll.innerHTML = '<div style="padding:20px;color:#888;text-align:center;">履歴がありません</div>';
+          return;
+        }
+        scroll.innerHTML = this.history.map((item, idx) => {
+          const d = new Date(item.date);
+          const dateStr = d.toLocaleString('ja-JP', { month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', second:'2-digit' });
+          const typeLabel = {input:'✏️入力', paste:'📋ペースト', shift:'📅シフト挿入'}[item.type] || item.type;
+          // 変更された日を表示
+          let changedStr = '';
+          if (item.changedKeys && item.changedKeys.length > 0) {
+            const sorted = item.changedKeys.sort();
+            if (sorted.length <= 3) {
+              changedStr = sorted.map(k => {
+                const [y,m,d] = k.split('-');
+                return `${m}/${d}`;
+              }).join(', ');
+            } else {
+              changedStr = sorted.slice(0,2).map(k => {
+                const [y,m,d] = k.split('-');
+                return `${m}/${d}`;
+              }).join(', ') + ` 他${sorted.length - 2}日`;
+            }
+          }
+          return `<div class="shift-history-item" onclick="ShiftHistory.restore(${idx})">
+            <div class="shift-history-date">${dateStr}</div>
+            <div class="shift-history-type">${typeLabel}</div>
+            <div class="shift-history-preview">${changedStr || '(詳細なし)'}</div>
+          </div>`;
+        }).join('');
+      },
+      async restore(idx) {
+        if (!this.history[idx]) return;
+        if (!confirm('この履歴に戻しますか？現在のデータは履歴に保存されます。')) return;
+        // 現在のデータをバックアップ
+        await this.addHistory('input');
+        // 復元
+        const data = this.history[idx].data;
+        memoData = data.memos || {};
+        shiftPatterns = data.shiftPatterns || shiftPatterns;
+        dayStatusColors = data.dayStatusColors || {};
+        await saveData(true); // 履歴保存をスキップ
+        renderSchedule();
+        this.toggle();
+        showToast('復元しました');
+      }
+    };
+
+    // データ保存（非同期）
+    async function saveData(skipHistory = false) {
+      try {
+        await saveToDB('scheduleData', {
+          memos: memoData,
+          lastYear: currentYear,
+          lastScroll: window.scrollY,
+          shiftPatterns: shiftPatterns,
+          designSettings: designSettings,
+          isPro: isPro,
+          statusColorSettings: statusColorSettings,
+          dayStatusColors: dayStatusColors
+        });
+        addDebugLog('データ保存');
+        // 履歴バックアップをスケジュール
+        if (!skipHistory) {
+          ShiftHistory.scheduleBackup();
+        }
+        // Firebase同期をスケジュール
+        FirebaseSync.scheduleBackup();
+      } catch (e) {
+        addDebugLog('データ保存エラー: ' + e.message);
+        showToast('保存エラー');
+      }
+    }
+
+    async function saveScroll() {
+      try {
+        const data = await loadFromDB('scheduleData') || {};
+        data.lastScroll = window.scrollY;
+        data.lastYear = currentYear;
+        await saveToDB('scheduleData', data);
+      } catch (e) {
+        // スクロール保存失敗は無視
+      }
+    }
+
+    async function restoreScroll() {
+      try {
+        const data = await loadFromDB('scheduleData');
+        if (data && data.lastScroll && data.lastYear === currentYear) {
+          setTimeout(() => window.scrollTo(0, data.lastScroll), 50);
+        }
+      } catch (e) {
+        // スクロール復元失敗は無視
+      }
+    }
+
+    // ========== デザイン ==========
+    function applyDesign() {
+      const theme = THEMES.find(t => t.id === designSettings.theme) || THEMES[0];
+      const size = SIZE_CONFIG[designSettings.size] || SIZE_CONFIG.medium;
+      const height = HEIGHT_CONFIG[designSettings.height] || HEIGHT_CONFIG.normal;
+
+      document.documentElement.style.setProperty('--primary-color', theme.primary);
+      document.documentElement.style.setProperty('--header-color', theme.header);
+      document.documentElement.style.setProperty('--bg-color', theme.bg);
+      document.documentElement.style.setProperty('--card-bg', theme.cardBg);
+      document.documentElement.style.setProperty('--text-color', theme.text);
+      document.documentElement.style.setProperty('--sub-text', theme.subText);
+      document.documentElement.style.setProperty('--font-size', size.fontSize);
+      document.documentElement.style.setProperty('--input-padding', size.inputPadding);
+      document.documentElement.style.setProperty('--row-height', height.rowHeight);
+      document.documentElement.style.setProperty('--memo-height', height.memoHeight);
+    }
+
+    function renderThemeOptions() {
+      const container = document.getElementById('themeOptions');
+      container.innerHTML = '';
+      
+      THEMES.forEach(theme => {
+        const div = document.createElement('div');
+        div.className = 'theme-option' + (designSettings.theme === theme.id ? ' selected' : '');
+        div.dataset.theme = theme.id;
+        div.onclick = () => selectTheme(div);
+        div.innerHTML = `
+          <div class="theme-preview">
+            <div class="theme-preview-header" style="background: ${theme.header}"></div>
+            <div class="theme-preview-body" style="background: ${theme.cardBg}">
+              <div class="theme-preview-row" style="background: ${theme.bg}"></div>
+              <div class="theme-preview-row" style="background: ${theme.cardBg}"></div>
+              <div class="theme-preview-row" style="background: ${theme.bg}"></div>
+            </div>
+          </div>
+          <div>
+            <div class="theme-name">${theme.name}</div>
+            <div class="theme-desc">${theme.desc}</div>
+          </div>
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    function openDesignModal() {
+      closeOptionsMenu();
+      renderThemeOptions();
+      
+      // 現在の選択を反映
+      document.querySelectorAll('.size-option[data-size]').forEach(el => {
+        el.classList.toggle('selected', el.dataset.size === designSettings.size);
+      });
+      document.querySelectorAll('.size-option[data-height]').forEach(el => {
+        el.classList.toggle('selected', el.dataset.height === designSettings.height);
+      });
+      
+      document.getElementById('designModal').classList.add('show');
+    }
+
+    function closeDesignModal() {
+      document.getElementById('designModal').classList.remove('show');
+    }
+
+    function selectTheme(el) {
+      document.querySelectorAll('.theme-option').forEach(e => e.classList.remove('selected'));
+      el.classList.add('selected');
+    }
+
+    function selectSize(el) {
+      document.querySelectorAll('.size-option[data-size]').forEach(e => e.classList.remove('selected'));
+      el.classList.add('selected');
+    }
+
+    function selectHeight(el) {
+      document.querySelectorAll('.size-option[data-height]').forEach(e => e.classList.remove('selected'));
+      el.classList.add('selected');
+    }
+
+    function saveDesign() {
+      const selectedTheme = document.querySelector('.theme-option.selected');
+      const selectedSize = document.querySelector('.size-option[data-size].selected');
+      const selectedHeight = document.querySelector('.size-option[data-height].selected');
+      
+      if (selectedTheme) designSettings.theme = selectedTheme.dataset.theme;
+      if (selectedSize) designSettings.size = selectedSize.dataset.size;
+      if (selectedHeight) designSettings.height = selectedHeight.dataset.height;
+      
+      applyDesign();
+      saveData();
+      closeDesignModal();
+      renderSchedule();
+      showToast('デザインを保存しました');
+    }
+
+    // ========== インポート/エクスポート ==========
+    let pendingImportData = null;
+
+    function triggerImport() {
+      closeOptionsMenu();
+      document.getElementById('importInput').click();
+    }
+
+    function handleImport(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          pendingImportData = JSON.parse(e.target.result);
+          openImportModeModal();
+        } catch (err) {
+          showToast('インポート失敗: ファイル形式エラー');
+          addDebugLog('インポートエラー: ' + err.message);
+        }
+      };
+      reader.readAsText(file);
+      event.target.value = '';
+    }
+
+    function openImportModeModal() {
+      document.getElementById('importModeModal').classList.add('show');
+    }
+
+    function closeImportModeModal() {
+      document.getElementById('importModeModal').classList.remove('show');
+      pendingImportData = null;
+    }
+
+    function executeImport(mode) {
+      if (!pendingImportData || !pendingImportData.memos) {
+        showToast('インポートデータがありません');
+        closeImportModeModal();
+        return;
+      }
+
+      const importedMemos = pendingImportData.memos;
+      let changeCount = 0;
+
+      if (mode === 'diff') {
+        // 差分変更モード：同じ位置で値が違う場合のみ上書き
+        for (const [key, values] of Object.entries(importedMemos)) {
+          if (!memoData[key]) {
+            memoData[key] = [''];
+          }
+          for (let i = 0; i < values.length; i++) {
+            const newVal = values[i];
+            const oldVal = memoData[key][i];
+            // 値があり、かつ既存と異なる場合のみ更新
+            if (newVal && newVal.trim() !== '' && newVal !== oldVal) {
+              // 枠が足りなければ拡張
+              while (memoData[key].length <= i) {
+                memoData[key].push('');
+              }
+              memoData[key][i] = newVal;
+              changeCount++;
+            }
+          }
+        }
+        addDebugLog(`差分インポート: ${changeCount}件更新`);
+        showToast(`差分インポート完了（${changeCount}件更新）`);
+      } else if (mode === 'append') {
+        // 新規追加モード：既存の枠の後ろに新しい枠として追加
+        for (const [key, values] of Object.entries(importedMemos)) {
+          if (!memoData[key]) {
+            memoData[key] = [''];
+          }
+          for (const value of values) {
+            if (value && value.trim() !== '') {
+              // 既存データに同じ値がなければ追加
+              if (!memoData[key].includes(value)) {
+                // 最初の枠が空なら上書き、そうでなければ追加
+                if (memoData[key].length === 1 && memoData[key][0] === '') {
+                  memoData[key][0] = value;
+                } else {
+                  memoData[key].push(value);
+                }
+                changeCount++;
+              }
+            }
+          }
+        }
+        addDebugLog(`新規追加インポート: ${changeCount}件追加`);
+        showToast(`新規追加完了（${changeCount}件追加）`);
+      }
+
+      // シフトパターンがあれば上書き
+      if (pendingImportData.shiftPatterns) {
+        shiftPatterns = pendingImportData.shiftPatterns;
+        addDebugLog('シフトパターンをインポート');
+      }
+
+      saveData();
+      closeImportModeModal();
+      renderSchedule();
+    }
+
+    function exportData() {
+      closeOptionsMenu();
+      const exportObj = {
+        memos: memoData,
+        shiftPatterns: shiftPatterns,
+        exportedAt: new Date().toISOString()
+      };
+
+      const blob = new Blob([JSON.stringify(exportObj, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `schedule_${new Date().toISOString().split('T')[0]}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast('エクスポートしました');
+    }
+
+    // ========== 問い合わせ ==========
+    function openContactModal() {
+      closeOptionsMenu();
+      document.getElementById('contactEmail').href = `mailto:${CONTACT_EMAIL}`;
+      document.getElementById('contactForm').href = CONTACT_FORM_URL;
+      document.getElementById('contactModal').classList.add('show');
+    }
+
+    function closeContactModal() {
+      document.getElementById('contactModal').classList.remove('show');
+    }
+
+    // ========== ステータスカラー ==========
+    function getEnabledStatusColors() {
+      return STATUS_COLORS.filter(c => {
+        const setting = statusColorSettings.find(s => s.id === c.id);
+        return setting ? setting.enabled : c.enabled;
+      });
+    }
+
+    function cycleStatusColor(key) {
+      const enabledColors = getEnabledStatusColors();
+      const currentColorId = dayStatusColors[key] || 'none';
+      const currentIndex = enabledColors.findIndex(c => c.id === currentColorId);
+      const nextIndex = (currentIndex + 1) % enabledColors.length;
+      const nextColorId = enabledColors[nextIndex].id;
+      
+      if (nextColorId === 'none') {
+        delete dayStatusColors[key];
+      } else {
+        dayStatusColors[key] = nextColorId;
+      }
+      
+      saveData();
+      renderSchedule();
+    }
+
+    function getStatusColorForDay(key) {
+      const colorId = dayStatusColors[key] || 'none';
+      const colorObj = STATUS_COLORS.find(c => c.id === colorId);
+      return colorObj ? colorObj.color : 'transparent';
+    }
+
+    function openStatusColorModal() {
+      closeOptionsMenu();
+      renderStatusColorSettings();
+      document.getElementById('statusColorModal').classList.add('show');
+    }
+
+    function closeStatusColorModal() {
+      document.getElementById('statusColorModal').classList.remove('show');
+    }
+
+    function renderStatusColorSettings() {
+      const list = document.getElementById('statusColorList');
+      list.innerHTML = '';
+
+      STATUS_COLORS.forEach((color, index) => {
+        const setting = statusColorSettings.find(s => s.id === color.id);
+        const enabled = setting ? setting.enabled : color.enabled;
+        
+        const item = document.createElement('div');
+        item.className = 'status-color-item' + (index === 0 || enabled ? '' : ' disabled');
+        item.innerHTML = `
+          <div class="status-color-preview" style="background: ${color.color === 'transparent' ? '#fff' : color.color}"></div>
+          <span class="status-color-name">${color.name}</span>
+          <div class="status-color-toggle ${enabled ? 'on' : ''}" data-id="${color.id}" onclick="toggleStatusColor(this)"></div>
+        `;
+        list.appendChild(item);
+      });
+    }
+
+    function toggleStatusColor(el) {
+      const id = el.dataset.id;
+      if (id === 'none') return; // 無色は常にON
+      
+      el.classList.toggle('on');
+      const item = el.closest('.status-color-item');
+      item.classList.toggle('disabled', !el.classList.contains('on'));
+    }
+
+    function saveStatusColorSettings() {
+      const toggles = document.querySelectorAll('.status-color-toggle');
+      statusColorSettings = Array.from(toggles).map(toggle => ({
+        id: toggle.dataset.id,
+        enabled: toggle.classList.contains('on')
+      }));
+      
+      // 無色は常にON
+      const noneIdx = statusColorSettings.findIndex(s => s.id === 'none');
+      if (noneIdx >= 0) statusColorSettings[noneIdx].enabled = true;
+      
+      saveData();
+      closeStatusColorModal();
+      showToast('ステータス色設定を保存しました');
+    }
+
+    // ========== PRO版 ==========
+    function updateProUI() {
+      const menuItem = document.getElementById('proMenuItem');
+      if (isPro) {
+        menuItem.innerHTML = '<span class="icon">🎉</span>PRO版';
+      } else {
+        menuItem.innerHTML = '<span class="icon">✨</span>PRO版';
+      }
+    }
+
+    function openProModal() {
+      closeOptionsMenu();
+      if (isPro) {
+        document.getElementById('proThanksModal').classList.add('show');
+      } else {
+        document.getElementById('proModal').classList.add('show');
+      }
+    }
+
+    function closeProModal() {
+      document.getElementById('proModal').classList.remove('show');
+    }
+
+    function closeProThanksModal() {
+      document.getElementById('proThanksModal').classList.remove('show');
+    }
+
+    // 予定欄入力時のPROコードチェック
+    async function checkProCode(key, value) {
+      if (value === PRO_CODE) {
+        // 入力をクリア
+        setTimeout(() => {
+          if (memoData[key]) {
+            const idx = memoData[key].indexOf(PRO_CODE);
+            if (idx >= 0) {
+              memoData[key][idx] = '';
+              saveData();
+              renderSchedule();
+            }
+          }
+        }, 100);
+
+        // サーバー認証を試みる
+        try {
+          const response = await fetch(`${PRO_API_URL}?code=${encodeURIComponent(value)}`);
+          const result = await response.json();
+          
+          if (result.valid) {
+            isPro = true;
+            localStorage.setItem('ntrr_pro_code', value);
+            saveData();
+            updateProUI();
+            showToast('🎉 ありがとうございます！');
+            addDebugLog('PRO版認証成功（サーバー）');
+            return true;
+          }
+        } catch (error) {
+          // オフラインならローカルで認証
+          addDebugLog('サーバー認証失敗、ローカル認証: ' + error.message);
+          isPro = true;
+          localStorage.setItem('ntrr_pro_code', value);
+          saveData();
+          updateProUI();
+          showToast('🎉 ありがとうございます！');
+          addDebugLog('PRO版認証成功（オフライン）');
+          return true;
+        }
+      }
+      return false;
+    }
+
+    // 起動時にPRO状態を再確認（オンライン時）
+    async function recheckProStatus() {
+      const savedCode = localStorage.getItem('ntrr_pro_code');
+      if (!savedCode || !isPro) return;
+      
+      try {
+        const response = await fetch(`${PRO_API_URL}?code=${encodeURIComponent(savedCode)}`);
+        const result = await response.json();
+        
+        if (!result.valid) {
+          // コードが無効化されてたらPRO解除
+          isPro = false;
+          localStorage.removeItem('ntrr_pro_code');
+          saveData();
+          updateProUI();
+          addDebugLog('PRO版が無効化されました');
+        }
+      } catch (error) {
+        // オフラインなら前回の状態を維持
+        addDebugLog('PRO再確認スキップ（オフライン）');
+      }
+    }
+
+    // ========== デバッグモード ==========
+    function addDebugLog(message) {
+      const timestamp = new Date().toLocaleTimeString();
+      debugLog.push(`[${timestamp}] ${message}`);
+      // 最新100件のみ保持
+      if (debugLog.length > 100) {
+        debugLog = debugLog.slice(-100);
+      }
+    }
+
+    function checkDebugCode(key, value) {
+      if (value === DEBUG_CODE) {
+        openDebugModal();
+        // 入力をクリア
+        setTimeout(() => {
+          if (memoData[key] && memoData[key].includes(DEBUG_CODE)) {
+            const idx = memoData[key].indexOf(DEBUG_CODE);
+            memoData[key][idx] = '';
+            saveData();
+            renderSchedule();
+          }
+        }, 100);
+        return true;
+      }
+      return false;
+    }
+
+    function openDebugModal() {
+      addDebugLog('デバッグモード起動');
+      updateDebugDisplay();
+      document.getElementById('debugModal').classList.add('show');
+    }
+
+    function closeDebugModal() {
+      document.getElementById('debugModal').classList.remove('show');
+    }
+
+    function updateDebugDisplay() {
+      document.getElementById('proStatusDisplay').textContent = 
+        `現在のステータス: ${isPro ? '✅ PRO版' : '❌ 通常版'}`;
+      
+      const logOutput = document.getElementById('debugLogOutput');
+      const logInfo = [
+        `=== システム情報 ===`,
+        `PRO版: ${isPro}`,
+        `テーマ: ${designSettings.theme}`,
+        `文字サイズ: ${designSettings.size}`,
+        `行の高さ: ${designSettings.height}`,
+        `表示年: ${currentYear}`,
+        `メモ件数: ${Object.keys(memoData).length}`,
+        `シフトパターン数: ${shiftPatterns.map(p => p.length).join(', ')}`,
+        `ストレージ: IndexedDB`,
+        `DB接続: ${db ? '✅' : '❌'}`,
+        ``,
+        `=== 操作ログ ===`,
+        ...debugLog.slice(-20)
+      ];
+      logOutput.value = logInfo.join('\n');
+    }
+
+    function toggleProStatus(status) {
+      isPro = status;
+      saveData();
+      updateProUI();
+      updateDebugDisplay();
+      addDebugLog(`PRO版を${status ? 'ON' : 'OFF'}に変更`);
+      showToast(`PRO版を${status ? '有効' : '無効'}にしました`);
+    }
+
+    function copyDebugLog() {
+      const logOutput = document.getElementById('debugLogOutput');
+      navigator.clipboard.writeText(logOutput.value).then(() => {
+        showToast('ログをコピーしました');
+      });
+    }
+
+    // Service Workerキャッシュ削除
+    async function clearServiceWorkerCache() {
+      if (confirm('Service Workerのキャッシュを削除しますか？\n次回読み込み時に再取得されます。')) {
+        try {
+          const cacheNames = await caches.keys();
+          await Promise.all(cacheNames.map(name => caches.delete(name)));
+          addDebugLog('SWキャッシュ削除完了: ' + cacheNames.join(', '));
+          showToast('キャッシュを削除しました');
+          updateDebugDisplay();
+        } catch (err) {
+          addDebugLog('SWキャッシュ削除失敗: ' + err.message);
+          showToast('削除に失敗しました');
+        }
+      }
+    }
+
+    // 全データ削除
+    async function clearAllData() {
+      if (confirm('全てのデータを削除しますか？\n\n⚠️ 予定、シフトパターン、設定が全て消えます。\nこの操作は取り消せません。')) {
+        if (confirm('本当に削除しますか？')) {
+          try {
+            // IndexedDB削除
+            if (db) {
+              const transaction = db.transaction([STORE_NAME], 'readwrite');
+              const store = transaction.objectStore(STORE_NAME);
+              await new Promise((resolve, reject) => {
+                const request = store.clear();
+                request.onsuccess = () => resolve();
+                request.onerror = () => reject(request.error);
+              });
+            }
+            // LocalStorageも削除
+            localStorage.removeItem('scheduleData_v5');
+            localStorage.removeItem('holidaysCache');
+            localStorage.removeItem('ntrr_pro_code');
+            addDebugLog('全データ削除完了');
+            showToast('全データを削除しました。リロードします...');
+            setTimeout(() => location.reload(), 1500);
+          } catch (e) {
+            addDebugLog('削除エラー: ' + e.message);
+            showToast('削除に失敗しました');
+          }
+        }
+      }
+    }
+
+    // ========== トースト ==========
+    function showToast(message) {
+      const toast = document.getElementById('toast');
+      toast.textContent = message;
+      toast.classList.remove('show');
+      void toast.offsetWidth; // reflow
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 2000);
+    }
+
+    // ========== メニュー ==========
+    function toggleOptionsMenu() {
+      const menu = document.getElementById('optionsMenu');
+      const overlay = document.getElementById('overlay');
+      menu.classList.toggle('show');
+      overlay.classList.toggle('show');
+    }
+
+    function closeOptionsMenu() {
+      document.getElementById('optionsMenu').classList.remove('show');
+    }
+
+    function closeAllMenus() {
+      document.getElementById('floatingMenu').classList.remove('show');
+      document.getElementById('optionsMenu').classList.remove('show');
+      document.getElementById('overlay').classList.remove('show');
+      activeMenuTarget = null;
+    }
+
+    function changeYear(delta) {
+      currentYear += delta;
+      document.getElementById('yearDisplay').textContent = currentYear + '年';
+      holidays = getHolidays(currentYear);
+      renderSchedule();
+      window.scrollTo(0, 0);
+      saveData();
+    }
+
+    function goToToday() {
+      const today = new Date();
+      if (currentYear !== today.getFullYear()) {
+        currentYear = today.getFullYear();
+        document.getElementById('yearDisplay').textContent = currentYear + '年';
+        holidays = getHolidays(currentYear);
+        renderSchedule();
+      }
+      const todayEl = document.querySelector('.day-row.today');
+      if (todayEl) {
+        todayEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }
+
+    function toggleEditMode() {
+      editMode = !editMode;
+      const btn = document.getElementById('editModeBtn');
+      const banner = document.getElementById('editBanner');
+      const container = document.getElementById('container');
+      const patternFloatBtn = document.getElementById('patternFloatBtn');
+      
+      if (editMode) {
+        btn.classList.add('active');
+        btn.textContent = '完了';
+        banner.classList.add('show');
+        container.classList.add('edit-mode');
+        patternFloatBtn.classList.add('show');
+      } else {
+        btn.classList.remove('active');
+        btn.textContent = 'シフト';
+        banner.classList.remove('show');
+        container.classList.remove('edit-mode');
+        patternFloatBtn.classList.remove('show');
+      }
+    }
+
+    // ========== ページ切り替え ==========
+    function openSettingsPage() {
+      document.getElementById('mainPage').classList.remove('active');
+      document.getElementById('settingsPage').classList.add('active');
+      renderPatternSettings();
+    }
+
+    function closeSettingsPage() {
+      document.getElementById('settingsPage').classList.remove('active');
+      document.getElementById('mainPage').classList.add('active');
+    }
+
+    // ========== パターン設定ページ ==========
+    function renderPatternSettings() {
+      const list = document.getElementById('patternList');
+      list.innerHTML = '';
+
+      shiftPatterns.forEach((pattern, index) => {
+        const card = document.createElement('div');
+        card.className = 'pattern-card';
+        card.innerHTML = `
+          <div class="pattern-card-header" style="border-left: 4px solid ${PATTERN_COLORS[index]}">
+            <span class="pattern-name">${PATTERN_NAMES[index]}</span>
+          </div>
+          <div class="pattern-card-body">
+            <textarea id="patternInput${index}" placeholder="1行に1つ入力">${pattern.join('\n')}</textarea>
+            <div class="pattern-hint">上から順に繰り返されます（最大90項目）</div>
+            <div class="pattern-preview" id="preview${index}">
+              プレビュー: ${pattern.map(p => `<span>${p}</span>`).join('')}
+            </div>
+          </div>
+        `;
+        list.appendChild(card);
+
+        const textarea = document.getElementById(`patternInput${index}`);
+        textarea.addEventListener('input', () => {
+          const lines = textarea.value.split('\n').map(s => s.trim()).filter(s => s !== '');
+          const preview = document.getElementById(`preview${index}`);
+          if (lines.length > 0) {
+            preview.innerHTML = 'プレビュー: ' + lines.slice(0, 20).map(p => `<span>${p}</span>`).join('') + (lines.length > 20 ? '...' : '');
+          } else {
+            preview.innerHTML = 'プレビュー: (未設定)';
+          }
+        });
+      });
+    }
+
+    function saveAllPatterns() {
+      for (let i = 0; i < 4; i++) {
+        const textarea = document.getElementById(`patternInput${i}`);
+        let lines = textarea.value.split('\n').map(s => s.trim()).filter(s => s !== '');
+        if (lines.length > MAX_PATTERN_ITEMS) {
+          lines = lines.slice(0, MAX_PATTERN_ITEMS);
+          showToast(`パターン${['A','B','C','D'][i]}は${MAX_PATTERN_ITEMS}項目に制限されました`);
+        }
+        if (lines.length > 0) {
+          shiftPatterns[i] = lines;
+        }
+      }
+      saveData();
+      closeSettingsPage();
+    }
+
+    // ========== シフト選択モーダル ==========
+    function updateStartPositionOptions() {
+      const patternIndex = parseInt(document.getElementById('patternSelect').value);
+      const pattern = shiftPatterns[patternIndex];
+      const select = document.getElementById('startPosition');
+      select.innerHTML = '';
+      
+      pattern.forEach((item, index) => {
+        const option = document.createElement('option');
+        option.value = index;
+        option.textContent = `${index + 1}番目: ${item}`;
+        select.appendChild(option);
+      });
+    }
+
+    function openShiftSelectModal(key) {
+      pendingShiftStart = key;
+      document.getElementById('patternSelect').value = '0';
+      document.getElementById('repeatCount').value = '1';
+      updateStartPositionOptions();
+      document.getElementById('shiftSelectModal').classList.add('show');
+    }
+
+    function closeShiftSelectModal() {
+      document.getElementById('shiftSelectModal').classList.remove('show');
+    }
+
+    function confirmShiftSettings() {
+      selectedPatternIndex = parseInt(document.getElementById('patternSelect').value);
+      selectedRepeatCount = parseInt(document.getElementById('repeatCount').value) || 1;
+      selectedStartPosition = parseInt(document.getElementById('startPosition').value) || 0;
+      closeShiftSelectModal();
+      openConfirmModal();
+    }
+
+    // ========== 確認モーダル ==========
+    function openConfirmModal() {
+      const [year, month, day] = pendingShiftStart.split('-').map(Number);
+      const pattern = shiftPatterns[selectedPatternIndex];
+      const totalDays = pattern.length * selectedRepeatCount;
+
+      document.getElementById('confirmDate').textContent = `${year}年${month}月${day}日`;
+      document.getElementById('confirmPattern').textContent = PATTERN_NAMES[selectedPatternIndex];
+      document.getElementById('confirmStartPos').textContent = `${selectedStartPosition + 1}番目 (${pattern[selectedStartPosition]})`;
+      document.getElementById('confirmRepeat').textContent = selectedRepeatCount;
+      document.getElementById('confirmDays').textContent = totalDays;
+      document.getElementById('confirmModal').classList.add('show');
+    }
+
+    function closeConfirmModal() {
+      document.getElementById('confirmModal').classList.remove('show');
+      pendingShiftStart = null;
+    }
+
+    // ========== シフト挿入実行 ==========
+    async function executeShiftInsert() {
+      if (!pendingShiftStart) {
+        closeConfirmModal();
+        return;
+      }
+      
+      // 挿入前の状態を保存
+      await ShiftHistory.addHistory('input');
+
+      const [year, month, day] = pendingShiftStart.split('-').map(Number);
+      const pattern = shiftPatterns[selectedPatternIndex];
+      const totalDays = pattern.length * selectedRepeatCount;
+
+      let currentDate = new Date(year, month - 1, day);
+      let patternIndex = selectedStartPosition;
+      
+      for (let i = 0; i < totalDays; i++) {
+        const y = currentDate.getFullYear();
+        const m = currentDate.getMonth() + 1;
+        const d = currentDate.getDate();
+        const key = `${y}-${m}-${d}`;
+
+        if (!memoData[key]) {
+          memoData[key] = [];
+        }
+        memoData[key][0] = pattern[patternIndex % pattern.length];
+
+        patternIndex++;
+        currentDate.setDate(currentDate.getDate() + 1);
+      }
+
+      saveData(true); // 通常の履歴スケジュールはスキップ
+      ShiftHistory.addHistory('shift'); // シフト挿入として即座に履歴保存
+      closeConfirmModal();
+      renderSchedule();
+      showToast(`${totalDays}日分のシフトを挿入しました`);
+    }
+
+    function onFirstMemoClick(key, event) {
+      if (editMode) {
+        event.preventDefault();
+        event.stopPropagation();
+        openShiftSelectModal(key);
+      }
+    }
+
+    function getDaysInMonth(year, month) {
+      return new Date(year, month + 1, 0).getDate();
+    }
+
+    function getWeekday(year, month, day) {
+      return new Date(year, month, day).getDay();
+    }
+
+    function isToday(year, month, day) {
+      const today = new Date();
+      return today.getFullYear() === year && 
+             today.getMonth() === month && 
+             today.getDate() === day;
+    }
+
+    function getMemos(key) {
+      if (!memoData[key]) {
+        memoData[key] = [''];
+      }
+      return memoData[key];
+    }
+
+    function updateMemo(key, index, value) {
+      if (!memoData[key]) {
+        memoData[key] = [''];
+      }
+      memoData[key][index] = value;
+      saveData();
+      
+      // デバッグコードチェック
+      checkDebugCode(key, value);
+      
+      // PROコードチェック
+      checkProCode(key, value);
+    }
+
+    function showMenu(key, index, event) {
+      if (editMode) return;
+      
+      const btn = event.currentTarget;
+      const rect = btn.getBoundingClientRect();
+      const menu = document.getElementById('floatingMenu');
+      const overlay = document.getElementById('overlay');
+      
+      activeMenuTarget = { key, index };
+      
+      menu.style.top = rect.top + 'px';
+      menu.classList.add('show');
+      overlay.classList.add('show');
+    }
+
+    function closeMenu() {
+      document.getElementById('floatingMenu').classList.remove('show');
+      document.getElementById('overlay').classList.remove('show');
+      activeMenuTarget = null;
+    }
+
+    function addMemo() {
+      if (!activeMenuTarget) return;
+      const { key, index } = activeMenuTarget;
+      if (!memoData[key]) {
+        memoData[key] = [''];
+      }
+      memoData[key].splice(index + 1, 0, '');
+      saveData();
+      closeAllMenus();
+      renderSchedule();
+    }
+
+    function copyMemo() {
+      if (!activeMenuTarget) return;
+      const { key, index } = activeMenuTarget;
+      const text = memoData[key]?.[index] || '';
+      if (text) {
+        navigator.clipboard.writeText(text).then(() => {
+          showToast('コピーしました');
+        }).catch(() => {
+          showToast('コピーに失敗しました');
+        });
+      } else {
+        showToast('コピーする内容がありません');
+      }
+      closeAllMenus();
+    }
+
+    function deleteMemo() {
+      if (!activeMenuTarget) return;
+      const { key, index } = activeMenuTarget;
+      if (memoData[key] && memoData[key].length > 1) {
+        memoData[key].splice(index, 1);
+      } else {
+        memoData[key] = [''];
+      }
+      saveData();
+      closeAllMenus();
+      renderSchedule();
+    }
+
+    function renderSchedule() {
+      const container = document.getElementById('container');
+      const wasEditMode = container.classList.contains('edit-mode');
+      container.innerHTML = '';
+      if (wasEditMode) {
+        container.classList.add('edit-mode');
+      }
+
+      for (let month = 0; month < 12; month++) {
+        const monthHeader = document.createElement('div');
+        monthHeader.className = 'month-header';
+        monthHeader.textContent = (month + 1) + '月';
+        container.appendChild(monthHeader);
+
+        const daysInMonth = getDaysInMonth(currentYear, month);
+        for (let day = 1; day <= daysInMonth; day++) {
+          const weekdayIndex = getWeekday(currentYear, month, day);
+          const weekdayName = WEEKDAYS[weekdayIndex];
+          const key = `${currentYear}-${month + 1}-${day}`;
+          
+          // 祝日チェック（APIは YYYY-MM-DD 形式）
+          const keyPadded = `${currentYear}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+          const holidayName = holidays[keyPadded] || holidays[key];
+
+          // ステータスカラー
+          const statusColor = getStatusColorForDay(key);
+
+          const row = document.createElement('div');
+          row.className = 'day-row';
+          if (weekdayIndex === 0) row.classList.add('sunday');
+          if (weekdayIndex === 6) row.classList.add('saturday');
+          if (holidayName) row.classList.add('holiday');
+          if (isToday(currentYear, month, day)) row.classList.add('today');
+
+          const dateDiv = document.createElement('div');
+          dateDiv.className = 'day-date';
+          dateDiv.textContent = day;
+          dateDiv.onclick = () => cycleStatusColor(key);
+
+          const weekdayDiv = document.createElement('div');
+          weekdayDiv.className = 'day-weekday';
+          weekdayDiv.textContent = weekdayName;
+          weekdayDiv.onclick = () => cycleStatusColor(key);
+
+          const memosContainer = document.createElement('div');
+          memosContainer.className = 'memos-container';
+          // ステータスカラーを適用
+          if (statusColor !== 'transparent') {
+            memosContainer.style.backgroundColor = statusColor;
+          }
+
+          let memos = getMemos(key);
+          
+          if (holidayName && (!memos[0] || memos[0] === '')) {
+            memos[0] = holidayName;
+            memoData[key] = memos;
+          }
+
+          memos.forEach((memo, index) => {
+            const memoItem = document.createElement('div');
+            memoItem.className = 'memo-item';
+
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.className = 'memo-input';
+            if (index === 0 && holidayName && memo === holidayName) {
+              input.classList.add('holiday-auto');
+            }
+            input.value = memo;
+            input.placeholder = 'タップして入力';
+            input.oninput = (e) => updateMemo(key, index, e.target.value);
+            
+            if (index === 0) {
+              input.onclick = (e) => onFirstMemoClick(key, e);
+            }
+
+            const menuBtn = document.createElement('button');
+            menuBtn.className = 'memo-menu-btn';
+            menuBtn.textContent = '⋮';
+            menuBtn.onclick = (e) => showMenu(key, index, e);
+
+            memoItem.appendChild(input);
+            memoItem.appendChild(menuBtn);
+            memosContainer.appendChild(memoItem);
+          });
+
+          row.appendChild(dateDiv);
+          row.appendChild(weekdayDiv);
+          row.appendChild(memosContainer);
+          container.appendChild(row);
+        }
+      }
+    }
+
+    let scrollTimer;
+    window.addEventListener('scroll', () => {
+      clearTimeout(scrollTimer);
+      scrollTimer = setTimeout(saveScroll, 200);
+    });
+
+    // 初期化（非同期）
+    async function init() {
+      await loadData();
+      await ShiftHistory.load();
+      document.getElementById('yearDisplay').textContent = currentYear + '年';
+      
+      // Service Worker登録
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('./sw.js')
+          .then((reg) => {
+            addDebugLog('Service Worker登録成功');
+          })
+          .catch((err) => {
+            addDebugLog('Service Worker登録失敗: ' + err.message);
+          });
+      }
+      
+      // 起動時にAPIから祝日を取得（オンラインなら）
+      await fetchHolidaysFromAPI();
+      holidays = getHolidays(currentYear);
+      renderSchedule();
+      restoreScroll();
+      
+      // PRO状態を再確認（オンラインなら）
+      recheckProStatus();
+    }
+    
+    init();
+  </script>
+  </div><!-- /shift-tab -->
+
+  <!-- ========== 家計簿タブ ========== -->
+  <div id="kakeibo-tab" class="main-tab-content">
+    <div class="kakeibo-app">
+      <div class="kakeibo-container">
+        <!-- 1行目: 名前入力 + 今月 + 新規登録 -->
+        <div class="kakeibo-row">
+          <input type="text" class="kakeibo-name-input" id="kakeiboNameInput" placeholder="2026年1月 / ローン返済表など">
+          <button class="kakeibo-btn" onclick="Kakeibo.setThisMonth()">今月</button>
+          <button class="kakeibo-btn kakeibo-btn-primary" onclick="Kakeibo.registerNew()">新規登録</button>
+        </div>
+        <!-- 2行目: 一覧 + 操作 -->
+        <div class="kakeibo-row">
+          <select id="kakeiboListSelect" class="kakeibo-select-wide" onchange="Kakeibo.onListSelect()">
+            <option value="">-- 保存データ一覧 --</option>
+          </select>
+          <select id="kakeiboActionSelect" class="kakeibo-select">
+            <option value="">操作</option>
+            <option value="load">呼び出し</option>
+            <option value="delete">削除</option>
+          </select>
+          <button class="kakeibo-btn" onclick="Kakeibo.executeAction()">実行</button>
+        </div>
+        <!-- 3行目: インポート/エクスポート/履歴 -->
+        <div class="kakeibo-row">
+          <button class="kakeibo-btn" onclick="document.getElementById('kakeiboImportFile').click()">インポート</button>
+          <button class="kakeibo-btn" onclick="Kakeibo.exportData()">エクスポート</button>
+          <button class="kakeibo-btn" onclick="Kakeibo.toggleHistory()">履歴 <span id="kakeiboHistoryCount">(0)</span></button>
+          <input type="file" id="kakeiboImportFile" accept=".json" style="display:none" onchange="Kakeibo.importData(this)">
+        </div>
+        <!-- 4行目: クラウド同期（オプション） -->
+        <div class="kakeibo-row cloud-sync-row">
+          <button class="kakeibo-btn" onclick="Kakeibo.toggleCloudSettings()">☁️同期設定</button>
+          <button class="kakeibo-btn" onclick="Kakeibo.cloudDownload()">↓読込</button>
+          <button class="kakeibo-btn" onclick="Kakeibo.cloudUpload()">↑書込</button>
+          <span class="cloud-status" id="kakeiboCloudStatus"></span>
+        </div>
+        <!-- クラウド同期設定（トグル表示） -->
+        <div class="cloud-settings" id="kakeiboCloudSettings" style="display:none;">
+          <div class="cloud-settings-inner">
+            <label>JSONBin API Key:<input type="password" id="kakeiboApiKey" placeholder="$2a$10$xxxxx"></label>
+            <label>Bin ID:<input type="text" id="kakeiboBinId" placeholder="xxxxxxxxxxxxxx"></label>
+            <div class="cloud-settings-buttons">
+              <button class="kakeibo-btn-small" onclick="Kakeibo.saveCloudSettings()">保存</button>
+              <button class="kakeibo-btn-small" onclick="Kakeibo.toggleCloudSettings()">閉じる</button>
+            </div>
+            <div class="cloud-help">
+              <a href="https://jsonbin.io/" target="_blank">jsonbin.io</a>で無料アカウント作成→API Key取得→新規Bin作成
+            </div>
+          </div>
+        </div>
+        <!-- 履歴スライダー（トグル表示） -->
+        <div class="kakeibo-history-slider" id="kakeiboHistorySlider" style="display:none;">
+          <div class="kakeibo-history-header">
+            <span>更新履歴（100件まで）</span>
+            <button class="kakeibo-btn-small" onclick="Kakeibo.toggleHistory()">閉じる</button>
+          </div>
+          <div class="kakeibo-history-scroll" id="kakeiboHistoryScroll"></div>
+        </div>
+        
+        <!-- 収支表示 -->
+        <div class="balance" id="kakeiboBalanceSection" onclick="Kakeibo.copyBalance()" title="クリックでコピー">
+          <span id="kakeiboBalanceAmount">¥0</span>
+        </div>
+        <div class="section">
+          <h3>前月繰越</h3>
+          <input type="text" id="kakeiboCarryOver" style="width:100%;padding:8px;font-size:14px;border:1px solid #ccc;border-radius:4px;">
+          <div class="total" id="kakeiboCarryOverTotal">¥0</div>
+        </div>
+        <div class="section">
+          <h3>収入</h3>
+          <textarea class="income-area" id="kakeiboIncomeArea"></textarea>
+          <div class="total" id="kakeiboIncomeTotal">¥0</div>
+        </div>
+        <div class="section">
+          <h3>支出</h3>
+          <textarea class="expense-area" id="kakeiboExpenseArea"></textarea>
+          <div class="total" id="kakeiboExpenseTotal">¥0</div>
+        </div>
+        <div class="section">
+          <h3>テンプレート</h3>
+          <textarea class="template-area" id="kakeiboTemplateArea"></textarea>
+          <div class="template-buttons">
+            <button onclick="Kakeibo.pasteTemplate()">支出に貼付</button>
+            <button onclick="Kakeibo.copyTemplate()">コピー</button>
+          </div>
+        </div>
+        <div class="help-section">
+          <h4>使い方</h4>
+          <ul>
+            <li><strong>数字を自動認識</strong>：半角・全角どちらもOK</li>
+            <li><strong>自動バックアップ</strong>：入力後2秒で履歴に保存</li>
+            <li><strong>文字より右の数字は無視</strong>：コメントとして使えます</li>
+            <li><strong>☁️クラウド同期</strong>：<a href="https://jsonbin.io/" target="_blank" style="color:#2196F3;">jsonbin.io</a>（無料）でアカウント作成→API KeyとBin IDを設定すると、端末間でデータ同期ができます</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div><!-- /kakeibo-tab -->
+
+  <!-- ========== メモタブ ========== -->
+  <div id="memo-tab" class="main-tab-content">
+    <div class="memo-app-new">
+      <div class="memo-container-new">
+        <!-- 1行目: 名前入力 + 新規登録 -->
+        <div class="memo-row">
+          <input type="text" class="memo-name-input" id="memoNameInput" placeholder="メモの名前">
+          <button class="memo-btn memo-btn-primary" onclick="Memo.registerNew()">新規登録</button>
+        </div>
+        <!-- 2行目: 一覧 + 操作 -->
+        <div class="memo-row">
+          <select id="memoListSelect" class="memo-select-wide">
+            <option value="">-- 保存メモ一覧 --</option>
+          </select>
+          <select id="memoActionSelect" class="memo-select">
+            <option value="">操作</option>
+            <option value="load">呼び出し</option>
+            <option value="rename">名前変更</option>
+            <option value="delete">削除</option>
+          </select>
+          <button class="memo-btn" onclick="Memo.executeAction()">実行</button>
+        </div>
+        <!-- 3行目: インポート/エクスポート/履歴 -->
+        <div class="memo-row">
+          <button class="memo-btn" onclick="document.getElementById('memoImportFile').click()">インポート</button>
+          <button class="memo-btn" onclick="Memo.exportData()">エクスポート</button>
+          <button class="memo-btn" onclick="Memo.toggleHistory()">履歴 <span id="memoHistoryCount">(0)</span></button>
+          <input type="file" id="memoImportFile" accept=".json" style="display:none" onchange="Memo.importData(this)">
+        </div>
+        <!-- 4行目: クラウド同期（オプション） -->
+        <div class="memo-row cloud-sync-row">
+          <button class="memo-btn" onclick="Memo.toggleCloudSettings()">☁️同期設定</button>
+          <button class="memo-btn" onclick="Memo.cloudDownload()">↓読込</button>
+          <button class="memo-btn" onclick="Memo.cloudUpload()">↑書込</button>
+          <span class="cloud-status" id="memoCloudStatus"></span>
+        </div>
+        <!-- クラウド同期設定（トグル表示） -->
+        <div class="cloud-settings" id="memoCloudSettings" style="display:none;">
+          <div class="cloud-settings-inner">
+            <label>JSONBin API Key:<input type="password" id="memoApiKey" placeholder="$2a$10$xxxxx"></label>
+            <label>Bin ID:<input type="text" id="memoBinId" placeholder="xxxxxxxxxxxxxx"></label>
+            <div class="cloud-settings-buttons">
+              <button class="memo-btn-small" onclick="Memo.saveCloudSettings()">保存</button>
+              <button class="memo-btn-small" onclick="Memo.toggleCloudSettings()">閉じる</button>
+            </div>
+            <div class="cloud-help">
+              <a href="https://jsonbin.io/" target="_blank">jsonbin.io</a>で無料アカウント作成→API Key取得→新規Bin作成
+            </div>
+          </div>
+        </div>
+        <!-- 履歴スライダー -->
+        <div class="memo-history-slider" id="memoHistorySlider" style="display:none;">
+          <div class="memo-history-header">
+            <span>更新履歴（100件まで）</span>
+            <button class="memo-btn-small" onclick="Memo.toggleHistory()">閉じる</button>
+          </div>
+          <div class="memo-history-scroll" id="memoHistoryScroll"></div>
+        </div>
+        <!-- 色変更ボタン -->
+        <div class="memo-row memo-color-row">
+          <span class="memo-color-label">文字色:</span>
+          <button class="memo-color-btn memo-color-red" onclick="Memo.setColor('#dc2626')">赤</button>
+          <button class="memo-color-btn memo-color-blue" onclick="Memo.setColor('#2563eb')">青</button>
+          <button class="memo-color-btn memo-color-green" onclick="Memo.setColor('#16a34a')">緑</button>
+          <button class="memo-color-btn memo-color-black active" onclick="Memo.setColor(null)">黒</button>
+          <button class="memo-btn memo-btn-clear" onclick="Memo.clearMemo()">クリア</button>
+          <span class="memo-save-status" id="memoSaveStatus"></span>
+        </div>
+        <!-- エディタ -->
+        <div class="memo-editor-wrapper">
+          <div id="memoEditor" class="memo-editor" contenteditable="true" data-empty="true"></div>
+        </div>
+        <div class="memo-help-section">
+          <h4>💡ヒント</h4>
+          <ul>
+            <li><strong>自動バックアップ</strong>：入力後2秒で履歴に保存</li>
+            <li><strong>☁️クラウド同期</strong>：<a href="https://jsonbin.io/" target="_blank">jsonbin.io</a>（無料）でアカウント作成→API KeyとBin IDを設定すると、端末間でデータ同期ができます</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div><!-- /memo-tab -->
+
+  <!-- ========== タブ切り替え・家計簿・メモのJS ========== -->
+  <script>
+    // ========== タブ切り替え ==========
+    function switchMainTab(tab) {
+      document.querySelectorAll('.main-tab-btn').forEach(btn => btn.classList.remove('active'));
+      document.querySelectorAll('.main-tab-content').forEach(content => content.classList.remove('active'));
+      document.querySelector(`.main-tab-btn.${tab}-tab`).classList.add('active');
+      document.getElementById(`${tab}-tab`).classList.add('active');
+      localStorage.setItem('currentMainTab', tab);
+    }
+
+    // ========== 家計簿モジュール（新仕様）==========
+    const Kakeibo = {
+      currentKey: null,          // 現在編集中のキー
+      history: [],               // 履歴（100件）
+      saveTimeout: null,         // debounce用
+      historyVisible: false,     // 履歴表示状態
+      
+      // ========== 履歴管理 ==========
+      async loadHistory() {
+        this.history = await loadFromDB('kakeibo_history') || [];
+        this.updateHistoryCount();
+      },
+      async saveHistoryToDB() {
+        while (this.history.length > 100) this.history.pop();
+        await saveToDB('kakeibo_history', this.history);
+        this.updateHistoryCount();
+        if (this.historyVisible) this.renderHistory();
+      },
+      updateHistoryCount() {
+        document.getElementById('kakeiboHistoryCount').textContent = `(${this.history.length})`;
+      },
+      async addHistory(type) {
+        const data = this.getCurrentData();
+        if (!data.carryOver && !data.income && !data.expense) return;
+        this.history.unshift({
+          date: new Date().toISOString(),
+          type: type, // 'input', 'paste', 'load', 'load-before'
+          name: this.currentKey || '(未保存)',
+          data: JSON.parse(JSON.stringify(data))
+        });
+        await this.saveHistoryToDB();
+      },
+      getCurrentData() {
+        return {
+          carryOver: document.getElementById('kakeiboCarryOver').value,
+          income: document.getElementById('kakeiboIncomeArea').value,
+          expense: document.getElementById('kakeiboExpenseArea').value,
+          template: document.getElementById('kakeiboTemplateArea').value
+        };
+      },
+      setCurrentData(data) {
+        document.getElementById('kakeiboCarryOver').value = data.carryOver || '';
+        document.getElementById('kakeiboIncomeArea').value = data.income || '';
+        document.getElementById('kakeiboExpenseArea').value = data.expense || '';
+        document.getElementById('kakeiboTemplateArea').value = data.template || '';
+        this.updateBalanceDisplay();
+      },
+      
+      // ========== 履歴表示 ==========
+      toggleHistory() {
+        this.historyVisible = !this.historyVisible;
+        const slider = document.getElementById('kakeiboHistorySlider');
+        slider.style.display = this.historyVisible ? 'block' : 'none';
+        if (this.historyVisible) this.renderHistory();
+      },
+      renderHistory() {
+        const scroll = document.getElementById('kakeiboHistoryScroll');
+        if (this.history.length === 0) {
+          scroll.innerHTML = '<div style="padding:20px;color:#888;text-align:center;">履歴がありません</div>';
+          return;
+        }
+        scroll.innerHTML = this.history.map((item, idx) => {
+          const d = new Date(item.date);
+          const dateStr = d.toLocaleString('ja-JP', { month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', second:'2-digit' });
+          const balance = this.calculateTotal(item.data.carryOver||'') + this.calculateTotal(item.data.income||'') - this.calculateTotal(item.data.expense||'');
+          const typeClass = 'type-' + item.type;
+          const itemClass = item.type === 'load' ? 'is-load' : (item.type === 'load-before' ? 'is-load-before' : '');
+          const typeLabel = {input:'✏️入力', paste:'📋ペースト', load:'📥呼出後', 'load-before':'📤呼出前'}[item.type] || item.type;
+          return `<div class="kakeibo-history-item ${itemClass}" onclick="Kakeibo.restoreFromHistory(${idx})">
+            <div class="kakeibo-history-date">${dateStr}</div>
+            <div class="kakeibo-history-type ${typeClass}">${typeLabel}</div>
+            <div class="kakeibo-history-balance">${this.formatAmount(balance)}</div>
+            <div class="kakeibo-history-name">${item.name}</div>
+          </div>`;
+        }).join('');
+      },
+      async restoreFromHistory(idx) {
+        if (!this.history[idx]) return;
+        // 復元
+        this.setCurrentData(this.history[idx].data);
+      },
+      
+      // ========== 入力検知・自動バックアップ ==========
+      onInput(e) {
+        this.updateBalanceDisplay();
+        this.saveCurrentData();
+        // debounce: 0.5秒後にバックアップ
+        clearTimeout(this.saveTimeout);
+        this.saveTimeout = setTimeout(() => this.addHistory('input'), 500);
+      },
+      onPaste(e) {
+        // ペースト時は即座にバックアップ予約（入力イベントの後に発火）
+        setTimeout(() => this.addHistory('paste'), 100);
+      },
+      
+      // ========== データ保存・読込 ==========
+      async saveCurrentData() {
+        if (!this.currentKey) return;
+        await saveToDB('kakeibo_data_' + this.currentKey, this.getCurrentData());
+        await this.saveLastEdited();
+        // Firebase同期をスケジュール
+        FirebaseSync.scheduleBackup();
+      },
+      async loadDataByKey(key) {
+        const data = await loadFromDB('kakeibo_data_' + key);
+        return data;
+      },
+      
+      // ========== 一覧管理 ==========
+      async getDataList() {
+        const list = await loadFromDB('kakeibo_list') || [];
+        return list;
+      },
+      async saveDataList(list) {
+        await saveToDB('kakeibo_list', list);
+      },
+      async updateListSelect() {
+        const list = await this.getDataList();
+        const select = document.getElementById('kakeiboListSelect');
+        select.innerHTML = '<option value="">-- 保存データ一覧 --</option>';
+        list.forEach(item => {
+          const opt = document.createElement('option');
+          opt.value = item.key;
+          opt.textContent = item.name;
+          select.appendChild(opt);
+        });
+      },
+      onListSelect() {
+        // 選択時は何もしない（実行ボタンで操作）
+      },
+      
+      // ========== UI操作 ==========
+      setThisMonth() {
+        const now = new Date();
+        const str = `${now.getFullYear()}年${now.getMonth()+1}月`;
+        document.getElementById('kakeiboNameInput').value = str;
+      },
+      async registerNew() {
+        const name = document.getElementById('kakeiboNameInput').value.trim();
+        if (!name) { alert('名前を入力してください'); return; }
+        const list = await this.getDataList();
+        const existing = list.find(item => item.name === name);
+        if (existing) {
+          if (!confirm(`「${name}」は既に存在します。上書きしますか？`)) return;
+          this.currentKey = existing.key;
+        } else {
+          const key = 'k_' + Date.now();
+          list.push({ key, name });
+          await this.saveDataList(list);
+          this.currentKey = key;
+        }
+        await this.saveCurrentData();
+        await this.updateListSelect();
+        alert(`「${name}」を保存しました`);
+      },
+      async executeAction() {
+        const listSelect = document.getElementById('kakeiboListSelect');
+        const actionSelect = document.getElementById('kakeiboActionSelect');
+        const selectedKey = listSelect.value;
+        const action = actionSelect.value;
+        
+        if (!selectedKey) { alert('一覧から選択してください'); return; }
+        if (!action) { alert('操作を選択してください'); return; }
+        
+        const list = await this.getDataList();
+        const item = list.find(i => i.key === selectedKey);
+        if (!item) { alert('データが見つかりません'); return; }
+        
+        if (action === 'load') {
+          // データ読み込み
+          const data = await this.loadDataByKey(selectedKey);
+          if (data) {
+            this.setCurrentData(data);
+            this.currentKey = selectedKey;
+            document.getElementById('kakeiboNameInput').value = item.name;
+          } else {
+            alert('データが見つかりません');
+          }
+        } else if (action === 'delete') {
+          if (!confirm(`「${item.name}」を削除しますか？`)) return;
+          await deleteFromDB('kakeibo_data_' + selectedKey);
+          const newList = list.filter(i => i.key !== selectedKey);
+          await this.saveDataList(newList);
+          await this.updateListSelect();
+          if (this.currentKey === selectedKey) {
+            this.currentKey = null;
+            document.getElementById('kakeiboNameInput').value = '';
+          }
+          alert('削除しました');
+        }
+        actionSelect.value = '';
+      },
+      
+      // ========== 計算 ==========
+      calculateTotal(text) {
+        let total = 0;
+        text.split('\n').forEach(line => {
+          let numStr = '';
+          for (let i = 0; i < line.length; i++) {
+            const char = line[i];
+            if (/[\d０-９.,\s]/.test(char)) numStr += char;
+            else break;
+          }
+          numStr = numStr.replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 0xFEE0)).replace(/,/g, '');
+          const numbers = numStr.match(/\d+(\.\d+)?/g);
+          if (numbers) numbers.forEach(num => total += parseFloat(num));
+        });
+        return total;
+      },
+      formatAmount(amount) { return '¥' + amount.toLocaleString('ja-JP'); },
+      updateBalanceDisplay() {
+        const carryOver = this.calculateTotal(document.getElementById('kakeiboCarryOver').value);
+        const income = this.calculateTotal(document.getElementById('kakeiboIncomeArea').value);
+        const expense = this.calculateTotal(document.getElementById('kakeiboExpenseArea').value);
+        const balance = carryOver + income - expense;
+        document.getElementById('kakeiboBalanceAmount').textContent = this.formatAmount(balance);
+        document.getElementById('kakeiboBalanceSection').classList.toggle('positive', balance >= 0);
+        document.getElementById('kakeiboCarryOverTotal').textContent = this.formatAmount(carryOver);
+        document.getElementById('kakeiboIncomeTotal').textContent = this.formatAmount(income);
+        document.getElementById('kakeiboExpenseTotal').textContent = this.formatAmount(expense);
+      },
+      
+      // ========== テンプレート ==========
+      async pasteTemplate() {
+        const template = document.getElementById('kakeiboTemplateArea').value;
+        const expenseArea = document.getElementById('kakeiboExpenseArea');
+        if (template.trim()) {
+          expenseArea.value = expenseArea.value.trim() ? expenseArea.value + '\n' + template : template;
+          this.updateBalanceDisplay();
+          await this.saveCurrentData();
+          await this.addHistory('paste');
+        }
+      },
+      copyTemplate() {
+        navigator.clipboard.writeText(document.getElementById('kakeiboTemplateArea').value).then(() => alert('コピーしました'));
+      },
+      copyBalance() {
+        navigator.clipboard.writeText(document.getElementById('kakeiboBalanceAmount').textContent).then(() => alert('コピーしました'));
+      },
+      
+      // ========== インポート/エクスポート ==========
+      async exportData() {
+        const list = await this.getDataList();
+        const exportObj = { list: [], data: {}, history: this.history };
+        for (const item of list) {
+          exportObj.list.push(item);
+          const data = await this.loadDataByKey(item.key);
+          if (data) exportObj.data[item.key] = data;
+        }
+        if (exportObj.list.length === 0) { alert('データがありません'); return; }
+        const blob = new Blob([JSON.stringify(exportObj, null, 2)], { type: 'application/json' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `kakeibo_export_${new Date().toISOString().slice(0,10)}.json`;
+        a.click();
+      },
+      async importData(input) {
+        const file = input.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+          try {
+            const importObj = JSON.parse(e.target.result);
+            if (!importObj.list || !importObj.data) { alert('無効なファイルです'); return; }
+            if (!confirm('全上書きでインポートします。既存データは履歴に保存されます。よろしいですか？')) {
+              input.value = '';
+              return;
+            }
+            // 既存データを履歴にバックアップ
+            const currentList = await this.getDataList();
+            for (const item of currentList) {
+              const data = await this.loadDataByKey(item.key);
+              if (data) {
+                this.history.unshift({
+                  date: new Date().toISOString(),
+                  type: 'import-backup',
+                  name: item.name + ' (インポート前)',
+                  data: data
+                });
+              }
+              await deleteFromDB('kakeibo_data_' + item.key);
+            }
+            // 新データをインポート
+            await this.saveDataList(importObj.list);
+            for (const item of importObj.list) {
+              if (importObj.data[item.key]) {
+                await saveToDB('kakeibo_data_' + item.key, importObj.data[item.key]);
+              }
+            }
+            // 履歴もインポート（あれば）
+            if (importObj.history && Array.isArray(importObj.history)) {
+              this.history = [...importObj.history, ...this.history];
+            }
+            await this.saveHistoryToDB();
+            await this.updateListSelect();
+            this.currentKey = null;
+            document.getElementById('kakeiboNameInput').value = '';
+            this.setCurrentData({ carryOver:'', income:'', expense:'', template:'' });
+            alert('インポートしました');
+          } catch (error) { alert('読み込み失敗: ' + error.message); }
+          input.value = '';
+        };
+        reader.readAsText(file);
+      },
+      
+      // ========== 初期化 ==========
+      async init() {
+        // イベントリスナー
+        const inputs = ['kakeiboCarryOver', 'kakeiboIncomeArea', 'kakeiboExpenseArea', 'kakeiboTemplateArea'];
+        inputs.forEach(id => {
+          const el = document.getElementById(id);
+          el.addEventListener('input', (e) => this.onInput(e));
+          el.addEventListener('paste', (e) => this.onPaste(e));
+        });
+        // 履歴読み込み
+        await this.loadHistory();
+        // 一覧更新
+        await this.updateListSelect();
+        // LocalStorageから移行
+        await this.migrateFromLocalStorage();
+        // 最後に編集したデータを自動呼び出し
+        await this.loadLastEdited();
+      },
+      async loadLastEdited() {
+        const lastKey = await loadFromDB('kakeibo_last_edited');
+        if (lastKey) {
+          const list = await this.getDataList();
+          const item = list.find(i => i.key === lastKey);
+          if (item) {
+            const data = await this.loadDataByKey(lastKey);
+            if (data) {
+              this.currentKey = lastKey;
+              this.setCurrentData(data);
+              document.getElementById('kakeiboNameInput').value = item.name;
+              // 一覧の選択状態も更新
+              document.getElementById('kakeiboListSelect').value = lastKey;
+            }
+          }
+        }
+      },
+      async saveLastEdited() {
+        if (this.currentKey) {
+          await saveToDB('kakeibo_last_edited', this.currentKey);
+        }
+      },
+      async migrateFromLocalStorage() {
+        const keysToRemove = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && key.startsWith('kakeibo_')) {
+            keysToRemove.push(key);
+          }
+        }
+        for (const key of keysToRemove) {
+          localStorage.removeItem(key);
+        }
+      },
+      
+      // ========== クラウド同期（JSONBin.io） ==========
+      toggleCloudSettings() {
+        const el = document.getElementById('kakeiboCloudSettings');
+        el.style.display = el.style.display === 'none' ? 'block' : 'none';
+        if (el.style.display === 'block') {
+          document.getElementById('kakeiboApiKey').value = localStorage.getItem('kakeibo_cloud_apikey') || '';
+          document.getElementById('kakeiboBinId').value = localStorage.getItem('kakeibo_cloud_binid') || '';
+        }
+      },
+      saveCloudSettings() {
+        localStorage.setItem('kakeibo_cloud_apikey', document.getElementById('kakeiboApiKey').value.trim());
+        localStorage.setItem('kakeibo_cloud_binid', document.getElementById('kakeiboBinId').value.trim());
+        this.toggleCloudSettings();
+        this.setCloudStatus('設定を保存しました', 'success');
+      },
+      setCloudStatus(msg, type) {
+        const el = document.getElementById('kakeiboCloudStatus');
+        el.textContent = msg;
+        el.className = 'cloud-status ' + (type || '');
+        if (type === 'success') setTimeout(() => { el.textContent = ''; }, 3000);
+      },
+      async cloudDownload() {
+        const apiKey = localStorage.getItem('kakeibo_cloud_apikey');
+        const binId = localStorage.getItem('kakeibo_cloud_binid');
+        if (!apiKey || !binId) { alert('同期設定を先に行ってください'); return; }
+        this.setCloudStatus('読み込み中...', 'loading');
+        try {
+          const res = await fetch(`https://api.jsonbin.io/v3/b/${binId}/latest`, {
+            headers: { 'X-Master-Key': apiKey }
+          });
+          if (!res.ok) throw new Error('読み込み失敗: ' + res.status);
+          const json = await res.json();
+          const importObj = json.record;
+          if (!importObj.list || !importObj.data) throw new Error('無効なデータ形式');
+          // インポート処理（既存を履歴にバックアップ）
+          const currentList = await this.getDataList();
+          for (const item of currentList) {
+            const data = await this.loadDataByKey(item.key);
+            if (data) {
+              this.history.unshift({
+                date: new Date().toISOString(), type: 'cloud-backup',
+                name: item.name + ' (同期前)', data: data
+              });
+            }
+            await deleteFromDB('kakeibo_data_' + item.key);
+          }
+          await this.saveDataList(importObj.list);
+          for (const item of importObj.list) {
+            if (importObj.data[item.key]) {
+              await saveToDB('kakeibo_data_' + item.key, importObj.data[item.key]);
+            }
+          }
+          if (importObj.history) this.history = [...importObj.history, ...this.history];
+          await this.saveHistoryToDB();
+          await this.updateListSelect();
+          this.currentKey = null;
+          document.getElementById('kakeiboNameInput').value = '';
+          this.setCurrentData({ carryOver:'', income:'', expense:'', template:'' });
+          await this.loadLastEdited();
+          this.setCloudStatus('読み込み完了', 'success');
+        } catch (e) {
+          this.setCloudStatus('エラー: ' + e.message, 'error');
+        }
+      },
+      async cloudUpload() {
+        const apiKey = localStorage.getItem('kakeibo_cloud_apikey');
+        const binId = localStorage.getItem('kakeibo_cloud_binid');
+        if (!apiKey || !binId) { alert('同期設定を先に行ってください'); return; }
+        this.setCloudStatus('書き込み中...', 'loading');
+        try {
+          const list = await this.getDataList();
+          const exportObj = { list: [], data: {}, history: this.history };
+          for (const item of list) {
+            exportObj.list.push(item);
+            const data = await this.loadDataByKey(item.key);
+            if (data) exportObj.data[item.key] = data;
+          }
+          const res = await fetch(`https://api.jsonbin.io/v3/b/${binId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', 'X-Master-Key': apiKey },
+            body: JSON.stringify(exportObj)
+          });
+          if (!res.ok) throw new Error('書き込み失敗: ' + res.status);
+          this.setCloudStatus('書き込み完了', 'success');
+        } catch (e) {
+          this.setCloudStatus('エラー: ' + e.message, 'error');
+        }
+      }
+    };
+
+    // ========== メモモジュール（新仕様）==========
+    const Memo = {
+      currentKey: null,          // 現在編集中のキー
+      history: [],               // 履歴（100件）
+      saveTimeout: null,         // debounce用
+      historyVisible: false,     // 履歴表示状態
+      currentColor: null,        // 現在の文字色
+      editor: null,
+      saveStatus: null,
+      
+      // ========== 履歴管理 ==========
+      async loadHistory() {
+        this.history = await loadFromDB('memo_history') || [];
+        this.updateHistoryCount();
+      },
+      async saveHistoryToDB() {
+        while (this.history.length > 100) this.history.pop();
+        await saveToDB('memo_history', this.history);
+        this.updateHistoryCount();
+        if (this.historyVisible) this.renderHistory();
+      },
+      updateHistoryCount() {
+        document.getElementById('memoHistoryCount').textContent = `(${this.history.length})`;
+      },
+      async addHistory(type) {
+        const content = this.editor.innerHTML;
+        if (!content.trim()) return;
+        this.history.unshift({
+          date: new Date().toISOString(),
+          type: type, // 'input', 'paste'
+          name: this.currentKey ? (await this.getNameByKey(this.currentKey)) : '(未保存)',
+          content: content
+        });
+        await this.saveHistoryToDB();
+      },
+      async getNameByKey(key) {
+        const list = await this.getDataList();
+        const item = list.find(i => i.key === key);
+        return item ? item.name : '(不明)';
+      },
+      
+      // ========== 履歴表示 ==========
+      toggleHistory() {
+        this.historyVisible = !this.historyVisible;
+        const slider = document.getElementById('memoHistorySlider');
+        slider.style.display = this.historyVisible ? 'block' : 'none';
+        if (this.historyVisible) this.renderHistory();
+      },
+      renderHistory() {
+        const scroll = document.getElementById('memoHistoryScroll');
+        if (this.history.length === 0) {
+          scroll.innerHTML = '<div style="padding:20px;color:#888;text-align:center;">履歴がありません</div>';
+          return;
+        }
+        scroll.innerHTML = this.history.map((item, idx) => {
+          const d = new Date(item.date);
+          const dateStr = d.toLocaleString('ja-JP', { month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', second:'2-digit' });
+          const preview = item.content.replace(/<[^>]*>/g, '').substring(0, 30);
+          const typeLabel = {input:'✏️入力', paste:'📋ペースト'}[item.type] || item.type;
+          return `<div class="memo-history-item" onclick="Memo.restoreFromHistory(${idx})">
+            <div class="memo-history-date">${dateStr}</div>
+            <div class="memo-history-type">${typeLabel}</div>
+            <div class="memo-history-preview">${preview}${preview.length >= 30 ? '...' : ''}</div>
+            <div class="memo-history-name">${item.name}</div>
+          </div>`;
+        }).join('');
+      },
+      async restoreFromHistory(idx) {
+        if (!this.history[idx]) return;
+        this.editor.innerHTML = this.history[idx].content;
+        this.updatePlaceholder();
+        await this.saveCurrentData();
+      },
+      
+      // ========== 入力検知・自動バックアップ ==========
+      onInput(e) {
+        this.updatePlaceholder();
+        this.saveCurrentData();
+        this.showSaving();
+        // debounce: 0.5秒後にバックアップ
+        clearTimeout(this.saveTimeout);
+        this.saveTimeout = setTimeout(() => {
+          this.addHistory('input');
+          this.showSaved();
+        }, 500);
+      },
+      onPaste(e) {
+        e.preventDefault();
+        document.execCommand('insertText', false, e.clipboardData.getData('text/plain'));
+        setTimeout(() => this.addHistory('paste'), 100);
+      },
+      showSaving() {
+        this.saveStatus.textContent = '保存中...';
+        this.saveStatus.className = 'memo-save-status saving';
+      },
+      showSaved() {
+        this.saveStatus.textContent = '保存済み';
+        this.saveStatus.className = 'memo-save-status saved';
+        setTimeout(() => { this.saveStatus.textContent = ''; }, 2000);
+      },
+      
+      // ========== データ保存・読込 ==========
+      async saveCurrentData() {
+        if (!this.currentKey) return;
+        await saveToDB('memo_data_' + this.currentKey, this.editor.innerHTML);
+        await this.saveLastEdited();
+        // Firebase同期をスケジュール
+        FirebaseSync.scheduleBackup();
+      },
+      async loadDataByKey(key) {
+        return await loadFromDB('memo_data_' + key);
+      },
+      
+      // ========== 一覧管理 ==========
+      async getDataList() {
+        return await loadFromDB('memo_list') || [];
+      },
+      async saveDataList(list) {
+        await saveToDB('memo_list', list);
+      },
+      async updateListSelect() {
+        const list = await this.getDataList();
+        const select = document.getElementById('memoListSelect');
+        select.innerHTML = '<option value="">-- 保存メモ一覧 --</option>';
+        list.forEach(item => {
+          const opt = document.createElement('option');
+          opt.value = item.key;
+          opt.textContent = item.name;
+          select.appendChild(opt);
+        });
+      },
+      
+      // ========== UI操作 ==========
+      async registerNew() {
+        const name = document.getElementById('memoNameInput').value.trim();
+        if (!name) { alert('名前を入力してください'); return; }
+        const list = await this.getDataList();
+        const existing = list.find(item => item.name === name);
+        if (existing) {
+          if (!confirm(`「${name}」は既に存在します。上書きしますか？`)) return;
+          this.currentKey = existing.key;
+        } else {
+          const key = 'm_' + Date.now();
+          list.push({ key, name });
+          await this.saveDataList(list);
+          this.currentKey = key;
+        }
+        await this.saveCurrentData();
+        await this.updateListSelect();
+        alert(`「${name}」を保存しました`);
+      },
+      async executeAction() {
+        const listSelect = document.getElementById('memoListSelect');
+        const actionSelect = document.getElementById('memoActionSelect');
+        const selectedKey = listSelect.value;
+        const action = actionSelect.value;
+        
+        if (!selectedKey) { alert('一覧から選択してください'); return; }
+        if (!action) { alert('操作を選択してください'); return; }
+        
+        const list = await this.getDataList();
+        const item = list.find(i => i.key === selectedKey);
+        if (!item) { alert('データが見つかりません'); return; }
+        
+        if (action === 'load') {
+          const data = await this.loadDataByKey(selectedKey);
+          this.editor.innerHTML = data || '';
+          this.currentKey = selectedKey;
+          document.getElementById('memoNameInput').value = item.name;
+          this.updatePlaceholder();
+        } else if (action === 'rename') {
+          const newName = prompt('新しい名前:', item.name);
+          if (newName && newName.trim()) {
+            item.name = newName.trim();
+            await this.saveDataList(list);
+            await this.updateListSelect();
+            if (this.currentKey === selectedKey) {
+              document.getElementById('memoNameInput').value = newName.trim();
+            }
+          }
+        } else if (action === 'delete') {
+          if (!confirm(`「${item.name}」を削除しますか？`)) return;
+          await deleteFromDB('memo_data_' + selectedKey);
+          const newList = list.filter(i => i.key !== selectedKey);
+          await this.saveDataList(newList);
+          await this.updateListSelect();
+          if (this.currentKey === selectedKey) {
+            this.currentKey = null;
+            this.editor.innerHTML = '';
+            document.getElementById('memoNameInput').value = '';
+            this.updatePlaceholder();
+          }
+          alert('削除しました');
+        }
+        actionSelect.value = '';
+      },
+      setColor(color) {
+        this.currentColor = color;
+        document.querySelectorAll('.memo-color-btn').forEach(btn => btn.classList.remove('active'));
+        if (color === '#dc2626') document.querySelector('.memo-color-red').classList.add('active');
+        else if (color === '#2563eb') document.querySelector('.memo-color-blue').classList.add('active');
+        else if (color === '#16a34a') document.querySelector('.memo-color-green').classList.add('active');
+        else document.querySelector('.memo-color-black').classList.add('active');
+        // 色を即座に設定してエディタにフォーカス
+        this.editor.focus();
+        document.execCommand('styleWithCSS', false, true);
+        if (color) {
+          document.execCommand('foreColor', false, color);
+        } else {
+          document.execCommand('foreColor', false, '#222222');
+        }
+      },
+      async clearMemo() {
+        if (!this.editor.textContent.trim()) return;
+        if (!confirm('メモをクリアしますか？')) return;
+        await this.addHistory('input');
+        this.editor.innerHTML = '';
+        await this.saveCurrentData();
+        this.updatePlaceholder();
+      },
+      updatePlaceholder() {
+        const isEmpty = !this.editor.textContent.trim();
+        this.editor.setAttribute('data-empty', isEmpty);
+      },
+      
+      // ========== インポート/エクスポート ==========
+      async exportData() {
+        const list = await this.getDataList();
+        const exportObj = { list: [], data: {}, history: this.history };
+        for (const item of list) {
+          exportObj.list.push(item);
+          const data = await this.loadDataByKey(item.key);
+          if (data) exportObj.data[item.key] = data;
+        }
+        if (exportObj.list.length === 0) { alert('データがありません'); return; }
+        const blob = new Blob([JSON.stringify(exportObj, null, 2)], { type: 'application/json' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `memo_export_${new Date().toISOString().slice(0,10)}.json`;
+        a.click();
+      },
+      async importData(input) {
+        const file = input.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+          try {
+            const importObj = JSON.parse(e.target.result);
+            if (!importObj.list || !importObj.data) { alert('無効なファイルです'); return; }
+            if (!confirm('全上書きでインポートします。既存データは履歴に保存されます。よろしいですか？')) {
+              input.value = '';
+              return;
+            }
+            // 既存データを履歴にバックアップ
+            const currentList = await this.getDataList();
+            for (const item of currentList) {
+              const data = await this.loadDataByKey(item.key);
+              if (data) {
+                this.history.unshift({
+                  date: new Date().toISOString(),
+                  type: 'import-backup',
+                  name: item.name + ' (インポート前)',
+                  content: data
+                });
+              }
+              await deleteFromDB('memo_data_' + item.key);
+            }
+            // 新データをインポート
+            await this.saveDataList(importObj.list);
+            for (const item of importObj.list) {
+              if (importObj.data[item.key]) {
+                await saveToDB('memo_data_' + item.key, importObj.data[item.key]);
+              }
+            }
+            // 履歴もインポート（あれば）
+            if (importObj.history && Array.isArray(importObj.history)) {
+              this.history = [...importObj.history, ...this.history];
+            }
+            await this.saveHistoryToDB();
+            await this.updateListSelect();
+            this.currentKey = null;
+            this.editor.innerHTML = '';
+            document.getElementById('memoNameInput').value = '';
+            this.updatePlaceholder();
+            alert('インポートしました');
+          } catch (error) { alert('読み込み失敗: ' + error.message); }
+          input.value = '';
+        };
+        reader.readAsText(file);
+      },
+      
+      // ========== 初期化 ==========
+      async init() {
+        this.editor = document.getElementById('memoEditor');
+        this.saveStatus = document.getElementById('memoSaveStatus');
+        // イベントリスナー
+        this.editor.addEventListener('input', (e) => this.onInput(e));
+        this.editor.addEventListener('paste', (e) => this.onPaste(e));
+        // 色変更：入力前に色を設定
+        this.editor.addEventListener('keydown', (e) => {
+          if (this.currentColor && !e.ctrlKey && !e.metaKey && e.key.length === 1) {
+            document.execCommand('styleWithCSS', false, true);
+            document.execCommand('foreColor', false, this.currentColor);
+          }
+        });
+        // 履歴読み込み
+        await this.loadHistory();
+        // 一覧更新
+        await this.updateListSelect();
+        // LocalStorageから移行
+        await this.migrateFromLocalStorage();
+        // 最後に編集したデータを自動呼び出し
+        await this.loadLastEdited();
+        this.updatePlaceholder();
+      },
+      async loadLastEdited() {
+        const lastKey = await loadFromDB('memo_last_edited');
+        if (lastKey) {
+          const list = await this.getDataList();
+          const item = list.find(i => i.key === lastKey);
+          if (item) {
+            const data = await this.loadDataByKey(lastKey);
+            if (data !== null) {
+              this.currentKey = lastKey;
+              this.editor.innerHTML = data;
+              document.getElementById('memoNameInput').value = item.name;
+              document.getElementById('memoListSelect').value = lastKey;
+            }
+          }
+        }
+      },
+      async saveLastEdited() {
+        if (this.currentKey) {
+          await saveToDB('memo_last_edited', this.currentKey);
+        }
+      },
+      async migrateFromLocalStorage() {
+        // 旧memoList移行
+        const oldList = localStorage.getItem('memoList');
+        if (oldList) {
+          const existingList = await loadFromDB('memo_list');
+          if (!existingList || existingList.length === 0) {
+            try {
+              const list = JSON.parse(oldList);
+              const newList = [];
+              for (const memo of list) {
+                const newKey = 'm_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+                newList.push({ key: newKey, name: memo.name });
+                const content = localStorage.getItem(memo.id);
+                if (content) await saveToDB('memo_data_' + newKey, content);
+                localStorage.removeItem(memo.id);
+                localStorage.removeItem(memo.id + '_history');
+              }
+              await this.saveDataList(newList);
+            } catch (e) { /* ignore */ }
+          }
+          localStorage.removeItem('memoList');
+          localStorage.removeItem('currentMemoId');
+        }
+      },
+      
+      // ========== クラウド同期（JSONBin.io） ==========
+      toggleCloudSettings() {
+        const el = document.getElementById('memoCloudSettings');
+        el.style.display = el.style.display === 'none' ? 'block' : 'none';
+        if (el.style.display === 'block') {
+          document.getElementById('memoApiKey').value = localStorage.getItem('memo_cloud_apikey') || '';
+          document.getElementById('memoBinId').value = localStorage.getItem('memo_cloud_binid') || '';
+        }
+      },
+      saveCloudSettings() {
+        localStorage.setItem('memo_cloud_apikey', document.getElementById('memoApiKey').value.trim());
+        localStorage.setItem('memo_cloud_binid', document.getElementById('memoBinId').value.trim());
+        this.toggleCloudSettings();
+        this.setCloudStatus('設定を保存しました', 'success');
+      },
+      setCloudStatus(msg, type) {
+        const el = document.getElementById('memoCloudStatus');
+        el.textContent = msg;
+        el.className = 'cloud-status ' + (type || '');
+        if (type === 'success') setTimeout(() => { el.textContent = ''; }, 3000);
+      },
+      async cloudDownload() {
+        const apiKey = localStorage.getItem('memo_cloud_apikey');
+        const binId = localStorage.getItem('memo_cloud_binid');
+        if (!apiKey || !binId) { alert('同期設定を先に行ってください'); return; }
+        this.setCloudStatus('読み込み中...', 'loading');
+        try {
+          const res = await fetch(`https://api.jsonbin.io/v3/b/${binId}/latest`, {
+            headers: { 'X-Master-Key': apiKey }
+          });
+          if (!res.ok) throw new Error('読み込み失敗: ' + res.status);
+          const json = await res.json();
+          const importObj = json.record;
+          if (!importObj.list || !importObj.data) throw new Error('無効なデータ形式');
+          // インポート処理（既存を履歴にバックアップ）
+          const currentList = await this.getDataList();
+          for (const item of currentList) {
+            const data = await this.loadDataByKey(item.key);
+            if (data) {
+              this.history.unshift({
+                date: new Date().toISOString(), type: 'cloud-backup',
+                name: item.name + ' (同期前)', content: data
+              });
+            }
+            await deleteFromDB('memo_data_' + item.key);
+          }
+          await this.saveDataList(importObj.list);
+          for (const item of importObj.list) {
+            if (importObj.data[item.key]) {
+              await saveToDB('memo_data_' + item.key, importObj.data[item.key]);
+            }
+          }
+          if (importObj.history) this.history = [...importObj.history, ...this.history];
+          await this.saveHistoryToDB();
+          await this.updateListSelect();
+          this.currentKey = null;
+          this.editor.innerHTML = '';
+          document.getElementById('memoNameInput').value = '';
+          this.updatePlaceholder();
+          await this.loadLastEdited();
+          this.setCloudStatus('読み込み完了', 'success');
+        } catch (e) {
+          this.setCloudStatus('エラー: ' + e.message, 'error');
+        }
+      },
+      async cloudUpload() {
+        const apiKey = localStorage.getItem('memo_cloud_apikey');
+        const binId = localStorage.getItem('memo_cloud_binid');
+        if (!apiKey || !binId) { alert('同期設定を先に行ってください'); return; }
+        this.setCloudStatus('書き込み中...', 'loading');
+        try {
+          const list = await this.getDataList();
+          const exportObj = { list: [], data: {}, history: this.history };
+          for (const item of list) {
+            exportObj.list.push(item);
+            const data = await this.loadDataByKey(item.key);
+            if (data) exportObj.data[item.key] = data;
+          }
+          const res = await fetch(`https://api.jsonbin.io/v3/b/${binId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', 'X-Master-Key': apiKey },
+            body: JSON.stringify(exportObj)
+          });
+          if (!res.ok) throw new Error('書き込み失敗: ' + res.status);
+          this.setCloudStatus('書き込み完了', 'success');
+        } catch (e) {
+          this.setCloudStatus('エラー: ' + e.message, 'error');
+        }
+      }
+    };
+
+    // ========== Firebase同期モジュール ==========
+    const FirebaseSync = {
+      user: null,
+      firestore: null,
+      syncTimeout: null,
+      lastSyncTime: null,
+      
+      // Firebase設定
+      config: {
+        apiKey: "AIzaSyDBG_r1boPvLrl-wVSIIv-CgCUk0EJrqSw",
+        authDomain: "pmake-e037a.firebaseapp.com",
+        projectId: "pmake-e037a",
+        storageBucket: "pmake-e037a.firebasestorage.app",
+        messagingSenderId: "716873851866",
+        appId: "1:716873851866:web:4a892b109a83de3aec96e3"
+      },
+      
+      // 初期化
+      async init() {
+        try {
+          // Firebase初期化
+          if (!firebase.apps.length) {
+            firebase.initializeApp(this.config);
+          }
+          this.firestore = firebase.firestore();
+          
+          // 認証状態の監視
+          firebase.auth().onAuthStateChanged((user) => {
+            this.user = user;
+            this.updateAuthUI();
+            if (user) {
+              // ログイン時：クラウドからデータ復元を試みる
+              this.restoreFromCloud();
+            }
+          });
+          
+          addDebugLog('Firebase初期化成功');
+        } catch (e) {
+          addDebugLog('Firebase初期化失敗: ' + e.message);
+        }
+      },
+      
+      // 認証UI更新
+      updateAuthUI() {
+        const bar = document.getElementById('firebaseAuthBar');
+        const statusText = document.getElementById('authStatusText');
+        const button = document.getElementById('authButton');
+        
+        if (this.user) {
+          bar.classList.remove('not-logged-in');
+          statusText.textContent = this.user.email || this.user.displayName || 'ログイン中';
+          button.innerHTML = 'ログアウト';
+          button.classList.remove('google-btn');
+        } else {
+          bar.classList.add('not-logged-in');
+          statusText.textContent = 'バックアップ未設定';
+          button.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg> Googleでログイン`;
+          button.classList.add('google-btn');
+        }
+      },
+      
+      // 同期ステータス表示
+      setSyncStatus(msg, isError = false) {
+        const el = document.getElementById('syncStatus');
+        el.textContent = msg;
+        el.style.color = isError ? '#ffcdd2' : '';
+        if (!isError && msg) {
+          setTimeout(() => { el.textContent = ''; }, 3000);
+        }
+      },
+      
+      // ログイン/ログアウト切り替え
+      async toggleAuth() {
+        if (this.user) {
+          if (confirm('ログアウトしますか？\n（ローカルデータは残ります）')) {
+            await firebase.auth().signOut();
+            this.setSyncStatus('ログアウトしました');
+          }
+        } else {
+          try {
+            const provider = new firebase.auth.GoogleAuthProvider();
+            await firebase.auth().signInWithPopup(provider);
+            this.setSyncStatus('ログインしました');
+          } catch (e) {
+            if (e.code !== 'auth/popup-closed-by-user') {
+              this.setSyncStatus('ログイン失敗', true);
+              addDebugLog('ログイン失敗: ' + e.message);
+            }
+          }
+        }
+      },
+      
+      // クラウドにバックアップ（debounce付き）
+      scheduleBackup() {
+        if (!this.user) return;
+        clearTimeout(this.syncTimeout);
+        this.syncTimeout = setTimeout(() => this.backupToCloud(), 5000);
+      },
+      
+      // クラウドにバックアップ実行
+      async backupToCloud() {
+        if (!this.user || !this.firestore) return;
+        
+        try {
+          this.setSyncStatus('バックアップ中...');
+          
+          // 各データを収集
+          const shiftData = {
+            memoData: memoData,
+            shiftPatterns: shiftPatterns,
+            designSettings: designSettings,
+            statusColorSettings: statusColorSettings,
+            dayStatusColors: dayStatusColors
+          };
+          
+          const kakeiboList = await Kakeibo.getDataList();
+          const kakeiboData = {};
+          for (const item of kakeiboList) {
+            const data = await Kakeibo.loadDataByKey(item.key);
+            if (data) kakeiboData[item.key] = data;
+          }
+          
+          const memoList = await Memo.getDataList();
+          const memoDataCloud = {};
+          for (const item of memoList) {
+            const data = await Memo.loadDataByKey(item.key);
+            if (data) memoDataCloud[item.key] = data;
+          }
+          
+          // Firestoreに保存
+          const docRef = this.firestore.collection('users').doc(this.user.uid);
+          await docRef.set({
+            shift: shiftData,
+            kakeibo: { list: kakeiboList, data: kakeiboData },
+            memo: { list: memoList, data: memoDataCloud },
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+          }, { merge: true });
+          
+          this.lastSyncTime = new Date();
+          this.setSyncStatus('✓ バックアップ完了');
+          addDebugLog('Firebaseバックアップ完了');
+        } catch (e) {
+          this.setSyncStatus('バックアップ失敗', true);
+          addDebugLog('Firebaseバックアップ失敗: ' + e.message);
+        }
+      },
+      
+      // クラウドから復元
+      async restoreFromCloud() {
+        if (!this.user || !this.firestore) return;
+        
+        try {
+          this.setSyncStatus('データ確認中...');
+          
+          const docRef = this.firestore.collection('users').doc(this.user.uid);
+          const doc = await docRef.get();
+          
+          if (!doc.exists) {
+            this.setSyncStatus('新規ユーザー（初回バックアップ待機）');
+            // 初回は現在のローカルデータをバックアップ
+            setTimeout(() => this.backupToCloud(), 2000);
+            return;
+          }
+          
+          const cloudData = doc.data();
+          const cloudTime = cloudData.updatedAt?.toDate?.() || new Date(0);
+          
+          // ローカルの最終更新時刻を取得
+          const localTime = await loadFromDB('lastSyncTime');
+          const localDate = localTime ? new Date(localTime) : new Date(0);
+          
+          // クラウドが新しい場合のみ復元を提案
+          if (cloudTime > localDate) {
+            const confirmRestore = confirm(
+              `クラウドに新しいデータがあります。\n` +
+              `クラウド: ${cloudTime.toLocaleString()}\n` +
+              `ローカル: ${localDate.getTime() ? localDate.toLocaleString() : '不明'}\n\n` +
+              `クラウドから復元しますか？\n（いいえを選ぶとローカルデータを維持）`
+            );
+            
+            if (confirmRestore) {
+              await this.applyCloudData(cloudData);
+              this.setSyncStatus('✓ 復元完了');
+            } else {
+              this.setSyncStatus('ローカルデータを維持');
+              // ローカルを優先した場合、後でバックアップ
+              setTimeout(() => this.backupToCloud(), 3000);
+            }
+          } else {
+            this.setSyncStatus('✓ 同期済み');
+          }
+          
+          // 同期時刻を保存
+          await saveToDB('lastSyncTime', new Date().toISOString());
+          
+        } catch (e) {
+          this.setSyncStatus('復元確認失敗', true);
+          addDebugLog('Firebase復元確認失敗: ' + e.message);
+        }
+      },
+      
+      // クラウドデータを適用
+      async applyCloudData(cloudData) {
+        // シフトデータ復元
+        if (cloudData.shift) {
+          if (cloudData.shift.memoData) {
+            memoData = cloudData.shift.memoData;
+            await saveToDB('memoData', memoData);
+          }
+          if (cloudData.shift.shiftPatterns) {
+            shiftPatterns = cloudData.shift.shiftPatterns;
+            await saveToDB('shiftPatterns', shiftPatterns);
+          }
+          if (cloudData.shift.designSettings) {
+            designSettings = cloudData.shift.designSettings;
+            await saveToDB('designSettings', designSettings);
+            applyTheme();
+          }
+          if (cloudData.shift.statusColorSettings) {
+            statusColorSettings = cloudData.shift.statusColorSettings;
+            await saveToDB('statusColorSettings', statusColorSettings);
+          }
+          if (cloudData.shift.dayStatusColors) {
+            dayStatusColors = cloudData.shift.dayStatusColors;
+            await saveToDB('dayStatusColors', dayStatusColors);
+          }
+          renderSchedule();
+        }
+        
+        // 家計簿データ復元
+        if (cloudData.kakeibo && cloudData.kakeibo.list) {
+          await Kakeibo.saveDataList(cloudData.kakeibo.list);
+          for (const item of cloudData.kakeibo.list) {
+            if (cloudData.kakeibo.data[item.key]) {
+              await saveToDB('kakeibo_data_' + item.key, cloudData.kakeibo.data[item.key]);
+            }
+          }
+          await Kakeibo.updateListSelect();
+          await Kakeibo.loadLastEdited();
+        }
+        
+        // メモデータ復元
+        if (cloudData.memo && cloudData.memo.list) {
+          await Memo.saveDataList(cloudData.memo.list);
+          for (const item of cloudData.memo.list) {
+            if (cloudData.memo.data[item.key]) {
+              await saveToDB('memo_data_' + item.key, cloudData.memo.data[item.key]);
+            }
+          }
+          await Memo.updateListSelect();
+          await Memo.loadLastEdited();
+        }
+        
+        addDebugLog('クラウドデータ復元完了');
+      }
+    };
+
+    // ========== 統合初期化 ==========
+    document.addEventListener('DOMContentLoaded', async () => {
+      // DBが初期化されるまで待つ
+      await new Promise(resolve => {
+        const checkDB = () => {
+          if (db) resolve();
+          else setTimeout(checkDB, 50);
+        };
+        checkDB();
+      });
+      await Kakeibo.init();
+      await Memo.init();
+      // Firebase初期化
+      await FirebaseSync.init();
+      // 前回のタブを復元
+      const savedTab = localStorage.getItem('currentMainTab');
+      if (savedTab) switchMainTab(savedTab);
+    });
+
+    // ========== ページ離脱時に即保存 ==========
+    document.addEventListener('visibilitychange', async () => {
+      if (document.visibilityState === 'hidden') {
+        // 保留中のタイマーをキャンセルして即保存
+        clearTimeout(ShiftHistory.saveTimeout);
+        clearTimeout(Kakeibo.saveTimeout);
+        clearTimeout(Memo.saveTimeout);
+        clearTimeout(FirebaseSync.syncTimeout);
+        // シフトデータ保存
+        await saveData(true);
+        // 家計簿・メモは既にsaveCurrentDataで保存済みだが念のため
+        if (Kakeibo.currentKey) await Kakeibo.saveCurrentData();
+        if (Memo.currentKey) await Memo.saveCurrentData();
+        // Firebaseバックアップ（ログイン中なら）
+        if (FirebaseSync.user) {
+          await FirebaseSync.backupToCloud();
+        }
+      }
+    });
+  </script>
+</body>
+</html>
