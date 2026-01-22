@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <title>ものぐさシフトカレンダー</title>
+  <title>ものぐさシフト手帳</title>
   
   <!-- PWA対応 -->
   <link rel="manifest" href="manifest.json">
@@ -105,10 +105,6 @@
 
     .edit-mode-btn.active {
       background: #e74c3c !important;
-    }
-
-    .options-btn {
-      font-size: 20px !important;
     }
 
     .history-btn {
@@ -315,7 +311,7 @@
       background: transparent;
       min-height: var(--memo-height);
       line-height: 1.4;
-      color: var(--text-color);
+      color: var(--memo-text-color, var(--text-color));
     }
 
     .memo-input::placeholder {
@@ -345,7 +341,7 @@
       width: 32px;
       background: transparent;
       border: none;
-      color: #bbb;
+      color: var(--memo-text-color, #bbb);
       font-size: 16px;
       cursor: pointer;
       opacity: 0;
@@ -358,7 +354,7 @@
     }
 
     .memo-menu-btn:hover {
-      color: #666;
+      color: var(--memo-text-color, #666);
     }
 
     .floating-menu {
@@ -406,19 +402,42 @@
     /* オプションメニュー */
     .options-menu {
       position: fixed;
-      top: 130px;
-      right: 16px;
+      top: 48px;
+      right: -280px;
+      width: 280px;
+      height: calc(100% - 48px);
       background: #fff;
-      border-radius: 12px;
-      box-shadow: 0 4px 24px rgba(0,0,0,0.2);
-      overflow: hidden;
+      box-shadow: -2px 0 8px rgba(0,0,0,0.2);
       z-index: 250;
-      display: none;
-      min-width: 200px;
+      transition: right 0.3s ease;
+      display: flex;
+      flex-direction: column;
     }
 
     .options-menu.show {
-      display: block;
+      right: 0;
+    }
+
+    .options-menu-header {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      background: var(--header-color, #2c3e50);
+      color: #fff;
+    }
+
+    .options-menu-header h2 {
+      margin: 0;
+      font-size: 1rem;
+      font-weight: 500;
+    }
+
+
+    .options-menu-list {
+      flex: 1;
+      overflow-y: auto;
     }
 
     .options-menu button {
@@ -426,7 +445,7 @@
       align-items: center;
       gap: 12px;
       width: 100%;
-      padding: 14px 20px;
+      padding: 16px 20px;
       border: none;
       background: #fff;
       font-size: 15px;
@@ -444,25 +463,48 @@
 
     .options-menu .icon {
       font-size: 18px;
+      width: 24px;
+      text-align: center;
     }
 
-    .overlay {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      z-index: 150;
-      display: none;
+    .menu-section-label {
+      padding: 10px 20px 6px;
+      font-size: 11px;
+      font-weight: bold;
+      color: #888;
+      background: #f5f5f5;
+      border-top: 1px solid #eee;
+      border-bottom: 1px solid #eee;
     }
 
-    .overlay.show {
-      display: block;
+    /* タブ別メニュー表示制御 */
+    .options-menu-list .menu-shift-only,
+    .options-menu-list .menu-kakeibo-only,
+    .options-menu-list .menu-memo-only {
+      display: none !important;
+    }
+    body.current-tab-shift .options-menu-list .menu-shift-only {
+      display: flex !important;
+    }
+    body.current-tab-shift .options-menu-list .menu-section-label.menu-shift-only {
+      display: block !important;
+    }
+    body.current-tab-kakeibo .options-menu-list .menu-kakeibo-only {
+      display: flex !important;
+    }
+    body.current-tab-kakeibo .options-menu-list .menu-section-label.menu-kakeibo-only {
+      display: block !important;
+    }
+    body.current-tab-memo .options-menu-list .menu-memo-only {
+      display: flex !important;
+    }
+    body.current-tab-memo .options-menu-list .menu-section-label.menu-memo-only {
+      display: block !important;
     }
 
     .today-btn {
       position: fixed;
-      bottom: 20px;
+      bottom: 100px;
       right: 20px;
       background: var(--primary-color);
       color: #fff;
@@ -482,7 +524,7 @@
 
     .pattern-float-btn {
       position: fixed;
-      bottom: 70px;
+      bottom: 150px;
       right: 20px;
       background: #27ae60;
       color: #fff;
@@ -1121,7 +1163,7 @@
       display: flex;
       background: #2c3e50;
       position: sticky;
-      top: 40px;
+      top: 0;
       z-index: 1000;
     }
     .main-tab-btn {
@@ -1141,13 +1183,25 @@
     .main-tab-btn.active.shift-tab { border-bottom-color: #3498db; }
     .main-tab-btn.active.kakeibo-tab { border-bottom-color: #4CAF50; }
     .main-tab-btn.active.memo-tab { border-bottom-color: #60a5fa; }
+    .global-menu-btn {
+      padding: 12px 16px;
+      border: none;
+      background: #2c3e50;
+      color: #fff;
+      font-size: 18px;
+      cursor: pointer;
+      transition: all 0.2s;
+      position: relative;
+      z-index: 1001;
+    }
+    .global-menu-btn:hover { background: #34495e; }
     .main-tab-content { display: none; }
     .main-tab-content.active { display: block; }
 
-    /* シフトタブがアクティブな時のヘッダー位置調整（認証バー32px + タブ45px = 77px） */
-    .shift-tab-content .header { top: 85px; }
-    .shift-tab-content .month-header { top: 149px; }
-    .shift-tab-content .settings-header { top: 85px; }
+    /* シフトタブがアクティブな時のヘッダー位置調整（タブ48px） */
+    .shift-tab-content .header { top: 48px; }
+    .shift-tab-content .month-header { top: 112px; }
+    .shift-tab-content .settings-header { top: 48px; }
 
     /* ========== 家計簿スタイル ========== */
     .kakeibo-app { background: var(--bg-color, #f5f5f5); padding: 10px; min-height: calc(100vh - 85px); }
@@ -1216,81 +1270,113 @@
     .kakeibo-app .help-section h4 { margin-bottom: 8px; font-size: 13px; color: var(--text-color, #333); }
     .kakeibo-app .help-section ul { margin-left: 20px; line-height: 1.8; }
 
-    /* ========== クラウド同期スタイル（共通） ========== */
-    .cloud-sync-row { background: color-mix(in srgb, var(--primary-color, #3498db) 10%, var(--card-bg, white)); padding: 8px; border-radius: 6px; border: 1px dashed color-mix(in srgb, var(--primary-color, #3498db) 50%, transparent); }
-    .cloud-status { font-size: 12px; color: var(--sub-text, #666); margin-left: auto; }
-    .cloud-status.success { color: #22c55e; }
-    .cloud-status.error { color: #ef4444; }
-    .cloud-status.loading { color: #f59e0b; }
-    .cloud-settings {
-      background: var(--bg-color, #f9f9f9); border: 1px solid color-mix(in srgb, var(--text-color, #333) 20%, transparent); border-radius: 8px;
-      margin-bottom: 10px; padding: 15px;
-    }
-    .cloud-settings-inner { display: flex; flex-direction: column; gap: 10px; }
-    .cloud-settings label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--sub-text, #555); }
-    .cloud-settings input {
-      padding: 8px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px;
-    }
-    .cloud-settings input:focus { outline: none; border-color: #90caf9; }
-    .cloud-settings-buttons { display: flex; gap: 8px; margin-top: 5px; }
-    .cloud-help { font-size: 11px; color: #888; margin-top: 5px; }
-    .cloud-help a { color: #2196F3; }
-
-    /* ========== Firebase認証バー ========== */
-    .firebase-auth-bar {
-      background: linear-gradient(135deg, #4285f4, #34a853);
-      padding: 8px 16px;
+    /* ========== 下部通知・広告バー ========== */
+    .bottom-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 80px;
+      background: #fff;
+      border-top: 1px solid #ddd;
+      z-index: 200;
       display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-      font-size: 13px;
-      color: white;
-      position: sticky;
-      top: 0;
-      z-index: 1100;
+      flex-direction: column;
     }
-    .firebase-auth-bar.not-logged-in {
-      background: linear-gradient(135deg, #ea4335, #fbbc05);
-    }
-    .firebase-auth-bar .auth-status {
-      display: flex;
-      align-items: center;
-      gap: 8px;
+    .bottom-bar-notice {
       flex: 1;
-      min-width: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 16px;
+      font-size: 13px;
+      color: #666;
+      background: #f9f9f9;
     }
-    .firebase-auth-bar .auth-status .user-email {
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
+    .bottom-bar-notice.warning {
+      background: #fff3cd;
+      color: #856404;
     }
-    .firebase-auth-bar .sync-status {
+    .bottom-bar-notice.success {
+      background: #d4edda;
+      color: #155724;
+    }
+    .bottom-bar-notice.error {
+      background: #f8d7da;
+      color: #721c24;
+    }
+    .bottom-bar-ad {
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #eee;
       font-size: 11px;
-      opacity: 0.9;
+      color: #999;
     }
-    .firebase-auth-bar button {
-      background: rgba(255,255,255,0.2);
-      color: white;
-      border: none;
-      padding: 6px 12px;
-      border-radius: 4px;
+    /* コンテンツの下部余白調整 */
+    .container {
+      padding-bottom: 90px;
+    }
+    .kakeibo-app, .memo-app-new {
+      padding-bottom: 90px;
+    }
+
+    /* ========== メニュー内認証セクション ========== */
+    .menu-auth-section {
+      padding: 16px;
+      background: #f5f5f5;
+      border-bottom: 1px solid #ddd;
+    }
+    .menu-auth-section.logged-in {
+      background: linear-gradient(135deg, #e8f5e9, #c8e6c9);
+    }
+    .menu-auth-section.not-logged-in {
+      background: linear-gradient(135deg, #fff3e0, #ffe0b2);
+    }
+    .menu-auth-status {
       font-size: 12px;
-      cursor: pointer;
-      white-space: nowrap;
-    }
-    .firebase-auth-bar button:hover {
-      background: rgba(255,255,255,0.3);
-    }
-    .firebase-auth-bar .google-btn {
-      background: white;
-      color: #333;
+      color: #666;
+      margin-bottom: 8px;
       display: flex;
       align-items: center;
       gap: 6px;
     }
-    .firebase-auth-bar .google-btn:hover {
-      background: #f5f5f5;
+    .menu-auth-email {
+      font-size: 13px;
+      font-weight: 500;
+      color: #333;
+      margin-bottom: 8px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .menu-auth-btn {
+      width: 100%;
+      padding: 10px 16px;
+      border: none;
+      border-radius: 6px;
+      font-size: 13px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .menu-auth-btn.google {
+      background: #fff;
+      color: #333;
+      border: 1px solid #ddd;
+    }
+    .menu-auth-btn.logout {
+      background: #e74c3c;
+      color: #fff;
+    }
+    .menu-sync-status {
+      font-size: 11px;
+      color: #888;
+      margin-top: 8px;
+      text-align: center;
     }
 
     /* ========== メモスタイル（新） ========== */
@@ -1382,25 +1468,13 @@
     .memo-help-section a { color: var(--primary-color, #2196F3); }
   </style>
 </head>
-<body>
-  <!-- ========== Firebase認証バー ========== -->
-  <div class="firebase-auth-bar not-logged-in" id="firebaseAuthBar">
-    <div class="auth-status">
-      <span>⚠️</span>
-      <span id="authStatusText">バックアップ未設定</span>
-      <span class="sync-status" id="syncStatus"></span>
-    </div>
-    <button class="google-btn" id="authButton" onclick="FirebaseSync.toggleAuth()">
-      <svg width="16" height="16" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
-      Googleでログイン
-    </button>
-  </div>
-
+<body class="current-tab-shift">
   <!-- ========== タブナビゲーション ========== -->
   <nav class="main-tab-nav">
     <button class="main-tab-btn shift-tab active" onclick="switchMainTab('shift')">📅 シフト</button>
     <button class="main-tab-btn kakeibo-tab" onclick="switchMainTab('kakeibo')">💰 家計簿</button>
     <button class="main-tab-btn memo-tab" onclick="switchMainTab('memo')">📝 メモ</button>
+    <button class="global-menu-btn" onclick="toggleOptionsMenu()">☰</button>
   </nav>
 
   <!-- ========== シフトカレンダータブ ========== -->
@@ -1408,18 +1482,24 @@
 
   <!-- ========== 設定値（ここを変更してください） ========== -->
   <script>
+    // アプリバージョン
+    const APP_VERSION = '1.0.0';
+    
     // 問い合わせ先設定
-    const CONTACT_EMAIL = 'your-email@example.com';  // ← メールアドレスをここに
-    const CONTACT_FORM_URL = 'https://forms.gle/xxxxx';  // ← GoogleフォームURLをここに
+    const CONTACT_EMAIL = 'renakaede@gmail.com';
+    const CONTACT_FORM_URL = 'https://forms.gle/a22rER5VdhJkbL8N6';
     
     // PRO認証API（Google Apps ScriptのデプロイURL）
-    const PRO_API_URL = 'https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec';  // ← GASのURLをここに
+    const PRO_API_URL = '';  // GASデプロイ後に設定
     
     // PRO認証コード（予定欄に入力）
     const PRO_CODE = 'pro32756591473826593614723936';
     
     // デバッグモード起動コード（予定欄に入力）
     const DEBUG_CODE = 'annko626206238506900';
+    
+    // ユーザー用サポートコード（予定欄に入力）
+    const SUPPORT_CODE = 'debug241531464135';
   </script>
 
   <!-- ========== メインページ ========== -->
@@ -1430,14 +1510,13 @@
       <button onclick="changeYear(1)">▶</button>
       <button class="edit-mode-btn" id="editModeBtn" onclick="toggleEditMode()">シフト</button>
       <button class="history-btn" onclick="ShiftHistory.toggle()">📜<span id="shiftHistoryCount"></span></button>
-      <button class="options-btn" onclick="toggleOptionsMenu()">⚙️</button>
     </div>
 
     <!-- シフト履歴オーバーレイ -->
     <div class="shift-history-overlay" id="shiftHistoryOverlay" style="display:none;">
       <div class="shift-history-panel">
         <div class="shift-history-header">
-          <span>更新履歴（100件まで）</span>
+          <span>更新履歴（50件まで）</span>
           <button class="shift-history-close" onclick="ShiftHistory.toggle()">✕</button>
         </div>
         <div class="shift-history-scroll" id="shiftHistoryScroll"></div>
@@ -1449,24 +1528,11 @@
     </div>
 
     <div class="container" id="container"></div>
-
-    <div class="overlay" id="overlay" onclick="closeAllMenus()"></div>
     
     <div class="floating-menu" id="floatingMenu">
       <button class="add" onclick="addMemo()">＋ 追加</button>
       <button onclick="copyMemo()">📋 コピー</button>
       <button class="delete" onclick="deleteMemo()">削除</button>
-    </div>
-
-    <!-- オプションメニュー -->
-    <div class="options-menu" id="optionsMenu">
-      <button onclick="openDesignModal()"><span class="icon">🎨</span>デザイン変更</button>
-      <button onclick="openStatusColorModal()"><span class="icon">🎯</span>ステータス色設定</button>
-      <button onclick="triggerImport()"><span class="icon">📁</span>インポート</button>
-      <button onclick="exportData()"><span class="icon">📤</span>エクスポート</button>
-      <button onclick="updateHolidays()"><span class="icon">🔄</span>祝日を更新</button>
-      <button onclick="openContactModal()"><span class="icon">✉️</span>お問い合わせ</button>
-      <button id="proMenuItem" onclick="openProModal()"><span class="icon">✨</span>PRO版</button>
     </div>
 
     <button class="today-btn" onclick="goToToday()">今日</button>
@@ -1523,41 +1589,6 @@
       </div>
     </div>
 
-    <!-- デザイン設定モーダル -->
-    <div class="modal-overlay" id="designModal">
-      <div class="modal">
-        <div class="modal-header">デザイン変更</div>
-        <div class="modal-body">
-          <div class="design-section">
-            <label>テーマ</label>
-            <div class="theme-options" id="themeOptions"></div>
-          </div>
-
-          <div class="design-section">
-            <label>文字サイズ</label>
-            <div class="size-options">
-              <div class="size-option" data-size="small" onclick="selectSize(this)">小</div>
-              <div class="size-option" data-size="medium" onclick="selectSize(this)">中</div>
-              <div class="size-option" data-size="large" onclick="selectSize(this)">大</div>
-            </div>
-          </div>
-
-          <div class="design-section">
-            <label>行の高さ</label>
-            <div class="size-options">
-              <div class="size-option" data-height="compact" onclick="selectHeight(this)">狭い</div>
-              <div class="size-option" data-height="normal" onclick="selectHeight(this)">普通</div>
-              <div class="size-option" data-height="relaxed" onclick="selectHeight(this)">広い</div>
-            </div>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button class="modal-btn cancel" onclick="closeDesignModal()">キャンセル</button>
-          <button class="modal-btn primary" onclick="saveDesign()">保存</button>
-        </div>
-      </div>
-    </div>
-
     <!-- ステータスカラー設定モーダル -->
     <div class="modal-overlay" id="statusColorModal">
       <div class="modal">
@@ -1598,102 +1629,109 @@
     </div>
 
     <!-- 問い合わせモーダル -->
-    <div class="modal-overlay" id="contactModal">
-      <div class="modal">
-        <div class="modal-header">お問い合わせ</div>
-        <div class="modal-body">
-          <div class="contact-options">
-            <a class="contact-btn" id="contactEmail" href="#">
-              <span class="icon">✉️</span>
-              <span>メールで連絡</span>
-            </a>
-            <a class="contact-btn" id="contactForm" href="#" target="_blank">
-              <span class="icon">📝</span>
-              <span>フォームで連絡</span>
-            </a>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button class="modal-btn cancel" onclick="closeContactModal()">閉じる</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- PRO版モーダル（未認証時） -->
-    <div class="modal-overlay" id="proModal">
-      <div class="modal">
-        <div class="modal-header">✨ PRO版</div>
-        <div class="modal-body">
-          <div class="pro-benefits">
-            <div class="pro-benefit-item">💖 開発者への応援</div>
-            <div class="pro-benefit-item">🚀 今後のアップデート支援</div>
-            <div class="pro-benefit-item">🔑 1つ買えば全アプリ対応</div>
-          </div>
-          <p style="font-size: 13px; color: #888; margin-top: 16px; line-height: 1.5; text-align: center;">
-            PRO版は機能追加ではありません。<br>開発者への応援です。
-          </p>
-          <div style="margin-top: 20px;">
-            <p style="font-size: 14px; color: #666; margin-bottom: 12px; line-height: 1.6;">
-              「HK-Key」アプリを購入すると、<br>認証コードが発行されます。
-            </p>
-            <a href="https://play.google.com/store/apps/details?id=com.kusenokimera.hkkey" target="_blank" class="pro-purchase-btn">
-              Google Playで購入
-            </a>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button class="modal-btn cancel" onclick="closeProModal()">閉じる</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- PRO版モーダル（認証済み） -->
-    <div class="modal-overlay" id="proThanksModal">
-      <div class="modal">
-        <div class="modal-header">🎉 PRO版</div>
-        <div class="modal-body" style="text-align: center;">
-          <div style="font-size: 48px; margin-bottom: 16px;">💖</div>
-          <p style="font-size: 18px; font-weight: bold; margin-bottom: 12px;">ありがとうございます！</p>
-          <p style="font-size: 14px; color: #666; line-height: 1.6;">
-            PRO版をご利用いただき<br>心より感謝申し上げます。<br><br>
-            今後もより良いアプリを目指して<br>開発を続けてまいります。
-          </p>
-        </div>
-        <div class="modal-footer">
-          <button class="modal-btn primary" onclick="closeProThanksModal()">閉じる</button>
-        </div>
-      </div>
-    </div>
-
     <!-- デバッグモーダル -->
     <div class="modal-overlay" id="debugModal">
-      <div class="modal">
+      <div class="modal" style="max-width: 500px; max-height: 90vh; overflow-y: auto;">
         <div class="modal-header">🔧 デバッグモード</div>
-        <div class="modal-body">
-          <div style="margin-bottom: 16px;">
-            <label>PRO版ステータス</label>
-            <div style="display: flex; gap: 12px; margin-top: 8px;">
-              <button class="modal-btn primary" onclick="toggleProStatus(true)">PRO ON</button>
-              <button class="modal-btn cancel" onclick="toggleProStatus(false)">PRO OFF</button>
-            </div>
+        <div class="modal-body" style="font-size: 13px;">
+          
+          <!-- PRO版セクション -->
+          <div style="margin-bottom: 16px; padding: 12px; background: #f9f9f9; border-radius: 8px;">
+            <label style="font-weight: bold;">PRO版ステータス</label>
             <div id="proStatusDisplay" style="margin-top: 8px; font-size: 14px;"></div>
-          </div>
-          <div style="margin-bottom: 16px;">
-            <label>キャッシュ削除</label>
-            <div style="display: flex; gap: 12px; margin-top: 8px;">
-              <button class="modal-btn danger" onclick="clearServiceWorkerCache()">SW キャッシュ削除</button>
-              <button class="modal-btn danger" onclick="clearAllData()">全データ削除</button>
+            <div style="display: flex; gap: 8px; margin-top: 8px;">
+              <button class="modal-btn primary" style="flex:1" onclick="toggleProStatus(true)">PRO ON</button>
+              <button class="modal-btn cancel" style="flex:1" onclick="toggleProStatus(false)">PRO OFF</button>
             </div>
-            <div style="margin-top: 8px; font-size: 12px; color: #888;">※全データ削除は予定・設定が全て消えます</div>
           </div>
+          
+          <!-- システム情報セクション -->
+          <div style="margin-bottom: 16px; padding: 12px; background: #f0f7ff; border-radius: 8px;">
+            <label style="font-weight: bold;">📱 システム情報</label>
+            <div id="debugSystemInfo" style="margin-top: 8px; font-family: monospace; font-size: 11px; line-height: 1.6;"></div>
+          </div>
+          
+          <!-- Firebase情報セクション -->
+          <div style="margin-bottom: 16px; padding: 12px; background: #fff8e1; border-radius: 8px;">
+            <label style="font-weight: bold;">☁️ Firebase / クラウド</label>
+            <div id="debugFirebaseInfo" style="margin-top: 8px; font-family: monospace; font-size: 11px; line-height: 1.6;"></div>
+            <div style="display: flex; gap: 8px; margin-top: 8px;">
+              <button class="modal-btn primary" style="flex:1; font-size: 12px;" onclick="debugForceSync()">強制同期</button>
+              <button class="modal-btn cancel" style="flex:1; font-size: 12px;" onclick="debugShowCloudData()">クラウドデータ確認</button>
+            </div>
+          </div>
+          
+          <!-- ストレージ情報セクション -->
+          <div style="margin-bottom: 16px; padding: 12px; background: #e8f5e9; border-radius: 8px;">
+            <label style="font-weight: bold;">💾 ストレージ</label>
+            <div id="debugStorageInfo" style="margin-top: 8px; font-family: monospace; font-size: 11px; line-height: 1.6;"></div>
+            <div style="display: flex; gap: 8px; margin-top: 8px;">
+              <button class="modal-btn cancel" style="flex:1; font-size: 12px;" onclick="debugExportRawData()">生データ出力</button>
+              <button class="modal-btn cancel" style="flex:1; font-size: 12px;" onclick="debugShowStorageKeys()">キー一覧</button>
+            </div>
+          </div>
+          
+          <!-- PWA情報セクション -->
+          <div style="margin-bottom: 16px; padding: 12px; background: #fce4ec; border-radius: 8px;">
+            <label style="font-weight: bold;">📦 PWA / Service Worker</label>
+            <div id="debugPWAInfo" style="margin-top: 8px; font-family: monospace; font-size: 11px; line-height: 1.6;"></div>
+            <div style="display: flex; gap: 8px; margin-top: 8px;">
+              <button class="modal-btn danger" style="flex:1; font-size: 12px;" onclick="clearServiceWorkerCache()">キャッシュ削除</button>
+              <button class="modal-btn cancel" style="flex:1; font-size: 12px;" onclick="debugReloadSW()">SW再登録</button>
+            </div>
+          </div>
+          
+          <!-- 危険な操作セクション -->
+          <div style="margin-bottom: 16px; padding: 12px; background: #ffebee; border-radius: 8px;">
+            <label style="font-weight: bold; color: #c62828;">⚠️ 危険な操作</label>
+            <div style="display: flex; gap: 8px; margin-top: 8px;">
+              <button class="modal-btn danger" style="flex:1; font-size: 12px;" onclick="clearAllData()">全データ削除</button>
+              <button class="modal-btn danger" style="flex:1; font-size: 12px;" onclick="debugResetPro()">PRO状態リセット</button>
+            </div>
+            <div style="margin-top: 8px; font-size: 11px; color: #888;">※これらの操作は取り消せません</div>
+          </div>
+          
+          <!-- ログセクション -->
           <div>
-            <label>デバッグログ</label>
-            <textarea id="debugLogOutput" readonly style="width:100%; height:150px; font-size:12px; font-family:monospace; margin-top:8px;"></textarea>
-            <button class="modal-btn cancel" style="margin-top:8px; width:100%;" onclick="copyDebugLog()">ログをコピー</button>
+            <label style="font-weight: bold;">📋 操作ログ（最新30件）</label>
+            <textarea id="debugLogOutput" readonly style="width:100%; height:120px; font-size:11px; font-family:monospace; margin-top:8px; background:#1e1e1e; color:#d4d4d4; border:none; border-radius:4px; padding:8px;"></textarea>
+            <div style="display: flex; gap: 8px; margin-top: 8px;">
+              <button class="modal-btn cancel" style="flex:1; font-size: 12px;" onclick="copyDebugLog()">コピー</button>
+              <button class="modal-btn cancel" style="flex:1; font-size: 12px;" onclick="debugClearLog()">ログクリア</button>
+            </div>
           </div>
         </div>
         <div class="modal-footer">
           <button class="modal-btn cancel" onclick="closeDebugModal()">閉じる</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ユーザー用サポートモーダル -->
+    <div class="modal-overlay" id="supportModal">
+      <div class="modal" style="max-width: 400px;">
+        <div class="modal-header">🛠️ サポート情報</div>
+        <div class="modal-body" style="font-size: 13px;">
+          <p style="margin-bottom: 12px; color: #666; line-height: 1.5;">
+            問題が発生した場合、以下の情報を<br>サポートにお送りください。
+          </p>
+          
+          <div style="background: #f5f5f5; padding: 12px; border-radius: 8px; margin-bottom: 12px;">
+            <label style="font-weight: bold; font-size: 12px; color: #888;">診断情報</label>
+            <textarea id="supportInfoText" readonly style="width:100%; height:150px; font-size:11px; font-family:monospace; margin-top:8px; background:#fff; border:1px solid #ddd; border-radius:4px; padding:8px; resize:none;"></textarea>
+          </div>
+          
+          <div style="display: flex; gap: 8px;">
+            <button class="modal-btn primary" style="flex:1" onclick="copySupportInfo()">📋 コピー</button>
+            <button class="modal-btn cancel" style="flex:1" onclick="shareSupportInfo()">📤 共有</button>
+          </div>
+          
+          <p style="margin-top: 12px; font-size: 11px; color: #999; text-align: center;">
+            ※ 個人データは含まれません
+          </p>
+        </div>
+        <div class="modal-footer">
+          <button class="modal-btn cancel" onclick="closeSupportModal()">閉じる</button>
         </div>
       </div>
     </div>
@@ -2052,7 +2090,7 @@
         this.updateCount();
       },
       async save() {
-        while (this.history.length > 100) this.history.pop();
+        while (this.history.length > 50) this.history.pop();
         await saveToDB('shift_history', this.history);
         this.updateCount();
         if (this.visible) this.render();
@@ -2096,7 +2134,7 @@
       },
       scheduleBackup() {
         clearTimeout(this.saveTimeout);
-        this.saveTimeout = setTimeout(() => this.addHistory('input'), 500);
+        this.saveTimeout = setTimeout(() => this.addHistory('input'), 1000);
       },
       toggle() {
         this.visible = !this.visible;
@@ -2422,7 +2460,16 @@
     function openContactModal() {
       closeOptionsMenu();
       document.getElementById('contactEmail').href = `mailto:${CONTACT_EMAIL}`;
-      document.getElementById('contactForm').href = CONTACT_FORM_URL;
+      
+      // フォームURLが設定されていれば表示
+      const formLink = document.getElementById('contactForm');
+      if (CONTACT_FORM_URL) {
+        formLink.href = CONTACT_FORM_URL;
+        formLink.style.display = '';
+      } else {
+        formLink.style.display = 'none';
+      }
+      
       document.getElementById('contactModal').classList.add('show');
     }
 
@@ -2519,9 +2566,9 @@
     function updateProUI() {
       const menuItem = document.getElementById('proMenuItem');
       if (isPro) {
-        menuItem.innerHTML = '<span class="icon">🎉</span>PRO版';
+        menuItem.innerHTML = '<span class="icon">🎉</span>支援済み';
       } else {
-        menuItem.innerHTML = '<span class="icon">✨</span>PRO版';
+        menuItem.innerHTML = '<span class="icon">✨</span>支援';
       }
     }
 
@@ -2557,75 +2604,116 @@
           }
         }, 100);
 
-        // サーバー認証を試みる
-        try {
-          const response = await fetch(`${PRO_API_URL}?code=${encodeURIComponent(value)}`);
-          const result = await response.json();
-          
-          if (result.valid) {
-            isPro = true;
-            localStorage.setItem('ntrr_pro_code', value);
-            saveData();
-            updateProUI();
-            showToast('🎉 ありがとうございます！');
-            addDebugLog('PRO版認証成功（サーバー）');
-            return true;
+        // PRO有効化
+        isPro = true;
+        localStorage.setItem('ntrr_pro_code', value);
+        saveData();
+        updateProUI();
+        showToast('🎉 ありがとうございます！');
+        addDebugLog('PRO版認証成功');
+        
+        // Firebase連携中ならクラウドにもPRO状態を保存
+        if (FirebaseSync.user) {
+          try {
+            await FirebaseSync.setProStatus(true);
+            addDebugLog('PRO状態をクラウドに保存');
+          } catch (e) {
+            addDebugLog('PRO状態のクラウド保存失敗: ' + e.message);
           }
-        } catch (error) {
-          // オフラインならローカルで認証
-          addDebugLog('サーバー認証失敗、ローカル認証: ' + error.message);
-          isPro = true;
-          localStorage.setItem('ntrr_pro_code', value);
-          saveData();
-          updateProUI();
-          showToast('🎉 ありがとうございます！');
-          addDebugLog('PRO版認証成功（オフライン）');
-          return true;
         }
+        return true;
       }
       return false;
     }
 
-    // 起動時にPRO状態を再確認（オンライン時）
+    // 起動時にPRO状態を再確認
     async function recheckProStatus() {
-      const savedCode = localStorage.getItem('ntrr_pro_code');
-      if (!savedCode || !isPro) return;
+      // Firebase連携中はクラウドのPRO状態を優先
+      if (FirebaseSync.user) {
+        addDebugLog('PRO状態はFirebaseから取得済み');
+        return;
+      }
       
-      try {
-        const response = await fetch(`${PRO_API_URL}?code=${encodeURIComponent(savedCode)}`);
-        const result = await response.json();
-        
-        if (!result.valid) {
-          // コードが無効化されてたらPRO解除
-          isPro = false;
-          localStorage.removeItem('ntrr_pro_code');
-          saveData();
-          updateProUI();
-          addDebugLog('PRO版が無効化されました');
-        }
-      } catch (error) {
-        // オフラインなら前回の状態を維持
-        addDebugLog('PRO再確認スキップ（オフライン）');
+      // オフライン時はローカルのコードを確認
+      const savedCode = localStorage.getItem('ntrr_pro_code');
+      if (savedCode === PRO_CODE) {
+        isPro = true;
+        updateProUI();
+        addDebugLog('PRO状態をローカルから復元');
       }
     }
 
     // ========== デバッグモード ==========
+    const ERROR_KEYWORDS = ['失敗', 'エラー', 'Error', 'error', 'failed', 'Failed'];
+    
     function addDebugLog(message) {
       const timestamp = new Date().toLocaleTimeString();
-      debugLog.push(`[${timestamp}] ${message}`);
-      // 最新100件のみ保持
+      const fullMessage = `[${timestamp}] ${message}`;
+      debugLog.push(fullMessage);
+      // 最新100件のみ保持（メモリ）
       if (debugLog.length > 100) {
         debugLog = debugLog.slice(-100);
       }
+      
+      // エラーっぽいログはIndexedDBにも永続保存
+      if (ERROR_KEYWORDS.some(kw => message.includes(kw))) {
+        saveErrorLog(fullMessage);
+      }
     }
+    
+    // エラーログをIndexedDBに保存
+    async function saveErrorLog(message) {
+      try {
+        let errorLogs = await loadFromDB('error_logs') || [];
+        errorLogs.push({
+          time: new Date().toISOString(),
+          message: message
+        });
+        // 最新10件のみ保持
+        if (errorLogs.length > 10) {
+          errorLogs = errorLogs.slice(-10);
+        }
+        await saveToDB('error_logs', errorLogs);
+      } catch (e) {
+        console.error('エラーログ保存失敗:', e);
+      }
+    }
+    
+    // グローバルエラーハンドラ
+    window.onerror = (msg, url, line, col, error) => {
+      const errorMsg = `JS Error: ${msg} (${line}:${col})`;
+      addDebugLog(errorMsg);
+      return false; // デフォルトのエラー処理も実行
+    };
+    
+    // Promise のunhandled rejection
+    window.onunhandledrejection = (event) => {
+      const errorMsg = `Promise Error: ${event.reason}`;
+      addDebugLog(errorMsg);
+    };
 
     function checkDebugCode(key, value) {
+      // 開発者用デバッグモード
       if (value === DEBUG_CODE) {
         openDebugModal();
         // 入力をクリア
         setTimeout(() => {
           if (memoData[key] && memoData[key].includes(DEBUG_CODE)) {
             const idx = memoData[key].indexOf(DEBUG_CODE);
+            memoData[key][idx] = '';
+            saveData();
+            renderSchedule();
+          }
+        }, 100);
+        return true;
+      }
+      // ユーザー用サポートモード
+      if (value === SUPPORT_CODE) {
+        openSupportModal();
+        // 入力をクリア
+        setTimeout(() => {
+          if (memoData[key] && memoData[key].includes(SUPPORT_CODE)) {
+            const idx = memoData[key].indexOf(SUPPORT_CODE);
             memoData[key][idx] = '';
             saveData();
             renderSchedule();
@@ -2646,36 +2734,334 @@
       document.getElementById('debugModal').classList.remove('show');
     }
 
-    function updateDebugDisplay() {
-      document.getElementById('proStatusDisplay').textContent = 
-        `現在のステータス: ${isPro ? '✅ PRO版' : '❌ 通常版'}`;
-      
-      const logOutput = document.getElementById('debugLogOutput');
-      const logInfo = [
-        `=== システム情報 ===`,
-        `PRO版: ${isPro}`,
-        `テーマ: ${designSettings.theme}`,
-        `文字サイズ: ${designSettings.size}`,
-        `行の高さ: ${designSettings.height}`,
-        `表示年: ${currentYear}`,
-        `メモ件数: ${Object.keys(memoData).length}`,
-        `シフトパターン数: ${shiftPatterns.map(p => p.length).join(', ')}`,
-        `ストレージ: IndexedDB`,
-        `DB接続: ${db ? '✅' : '❌'}`,
-        ``,
-        `=== 操作ログ ===`,
-        ...debugLog.slice(-20)
-      ];
-      logOutput.value = logInfo.join('\n');
+    // ========== ユーザー用サポート機能 ==========
+    function openSupportModal() {
+      generateSupportInfo();
+      document.getElementById('supportModal').classList.add('show');
     }
 
-    function toggleProStatus(status) {
+    function closeSupportModal() {
+      document.getElementById('supportModal').classList.remove('show');
+    }
+
+    async function generateSupportInfo() {
+      const info = [];
+      const now = new Date();
+      
+      // 基本情報
+      info.push('=== サポート診断情報 ===');
+      info.push(`生成日時: ${now.toLocaleString()}`);
+      info.push(`アプリVer: ${APP_VERSION}`);
+      info.push('');
+      
+      // 環境情報
+      info.push('[環境]');
+      info.push(`画面: ${window.innerWidth}x${window.innerHeight}`);
+      info.push(`オンライン: ${navigator.onLine ? 'Yes' : 'No'}`);
+      info.push(`タッチ: ${('ontouchstart' in window) ? 'Yes' : 'No'}`);
+      info.push(`言語: ${navigator.language}`);
+      info.push('');
+      
+      // ブラウザ情報（短縮）
+      info.push('[ブラウザ]');
+      const ua = navigator.userAgent;
+      if (ua.includes('Chrome')) info.push('Chrome');
+      else if (ua.includes('Safari')) info.push('Safari');
+      else if (ua.includes('Firefox')) info.push('Firefox');
+      else info.push('Other');
+      info.push(`モバイル: ${/Mobile|Android|iPhone/.test(ua) ? 'Yes' : 'No'}`);
+      info.push('');
+      
+      // データ状態
+      info.push('[データ状態]');
+      info.push(`シフトメモ: ${Object.keys(memoData).length}件`);
+      info.push(`パターン: ${shiftPatterns.length}件`);
+      
+      try {
+        const kakeiboList = await Kakeibo.getDataList();
+        info.push(`家計簿: ${kakeiboList.length}件`);
+      } catch (e) {
+        info.push(`家計簿: 取得エラー`);
+      }
+      
+      try {
+        const memoList = await Memo.getDataList();
+        info.push(`メモ: ${memoList.length}件`);
+      } catch (e) {
+        info.push(`メモ: 取得エラー`);
+      }
+      info.push('');
+      
+      // 同期状態
+      info.push('[同期状態]');
+      info.push(`ログイン: ${FirebaseSync.user ? 'Yes' : 'No'}`);
+      info.push(`最終同期: ${FirebaseSync.lastSyncTime ? FirebaseSync.lastSyncTime.toLocaleString() : '未同期'}`);
+      info.push(`PRO: ${isPro ? 'Yes' : 'No'}`);
+      info.push('');
+      
+      // ストレージ状態
+      info.push('[ストレージ]');
+      info.push(`IndexedDB: ${db ? 'OK' : 'NG'}`);
+      if (navigator.storage && navigator.storage.estimate) {
+        try {
+          const estimate = await navigator.storage.estimate();
+          const usedMB = (estimate.usage / 1024 / 1024).toFixed(2);
+          const quotaMB = (estimate.quota / 1024 / 1024).toFixed(0);
+          info.push(`使用量: ${usedMB}MB / ${quotaMB}MB`);
+        } catch (e) {
+          info.push(`使用量: 取得エラー`);
+        }
+      }
+      info.push('');
+      
+      // 最近のエラー（IndexedDBから取得）
+      try {
+        const errorLogs = await loadFromDB('error_logs') || [];
+        if (errorLogs.length > 0) {
+          info.push('[最近のエラー]');
+          errorLogs.slice(-5).forEach(e => {
+            const time = new Date(e.time).toLocaleString();
+            info.push(`${time}: ${e.message.slice(0, 60)}`);
+          });
+        }
+      } catch (e) {
+        // メモリ上のログにフォールバック
+        if (debugLog && debugLog.length > 0) {
+          const errors = debugLog.filter(log => log.includes('失敗') || log.includes('エラー')).slice(-5);
+          if (errors.length > 0) {
+            info.push('[最近のエラー]');
+            errors.forEach(e => info.push(e.slice(0, 60)));
+          }
+        }
+      }
+      
+      document.getElementById('supportInfoText').value = info.join('\n');
+    }
+
+    function copySupportInfo() {
+      const text = document.getElementById('supportInfoText').value;
+      navigator.clipboard.writeText(text).then(() => {
+        alert('コピーしました！\nサポートに貼り付けてお送りください。');
+      }).catch(() => {
+        // フォールバック
+        document.getElementById('supportInfoText').select();
+        document.execCommand('copy');
+        alert('コピーしました！');
+      });
+    }
+
+    function shareSupportInfo() {
+      const text = document.getElementById('supportInfoText').value;
+      if (navigator.share) {
+        navigator.share({
+          title: 'サポート診断情報',
+          text: text
+        }).catch(() => {});
+      } else {
+        copySupportInfo();
+      }
+    }
+
+    function updateDebugDisplay() {
+      // PRO状態
+      const proDisplay = document.getElementById('proStatusDisplay');
+      proDisplay.innerHTML = `
+        現在: ${isPro ? '✅ PRO版' : '❌ 通常版'}<br>
+        認証方法: ${FirebaseSync.user ? 'クラウド' : 'ローカル'}
+      `;
+      
+      // システム情報
+      const sysInfo = document.getElementById('debugSystemInfo');
+      const memUsage = performance.memory ? `${Math.round(performance.memory.usedJSHeapSize / 1024 / 1024)}MB` : '取得不可';
+      sysInfo.innerHTML = `
+        アプリVer: ${APP_VERSION}<br>
+        表示年: ${currentYear}<br>
+        テーマ: ${designSettings.theme}<br>
+        文字サイズ: ${designSettings.size} / 行高: ${designSettings.height}<br>
+        メモ件数: ${Object.keys(memoData).length}<br>
+        画面: ${window.innerWidth}x${window.innerHeight}<br>
+        タッチ: ${('ontouchstart' in window) ? '✅' : '❌'}<br>
+        オンライン: ${navigator.onLine ? '✅' : '❌'}<br>
+        メモリ: ${memUsage}<br>
+        UA: ${navigator.userAgent.slice(0, 50)}...
+      `;
+      
+      // Firebase情報
+      const fbInfo = document.getElementById('debugFirebaseInfo');
+      fbInfo.innerHTML = `
+        接続: ${FirebaseSync.firestore ? '✅' : '❌'}<br>
+        ログイン: ${FirebaseSync.user ? '✅ ' + (FirebaseSync.user.email || 'Anonymous') : '❌ 未ログイン'}<br>
+        UID: ${FirebaseSync.user ? FirebaseSync.user.uid.slice(0, 12) + '...' : '-'}<br>
+        最終同期: ${FirebaseSync.lastSyncTime ? FirebaseSync.lastSyncTime.toLocaleString() : '未同期'}
+      `;
+      
+      // ストレージ情報
+      const storageInfo = document.getElementById('debugStorageInfo');
+      const lsKeys = Object.keys(localStorage).length;
+      const lsSize = new Blob(Object.values(localStorage)).size;
+      storageInfo.innerHTML = `
+        IndexedDB: ${db ? '✅ 接続中' : '❌'}<br>
+        localStorage: ${lsKeys}キー / ${(lsSize / 1024).toFixed(1)}KB<br>
+        シフトパターン: ${shiftPatterns.map((p, i) => `${i+1}:${p.length}件`).join(', ')}
+      `;
+      
+      // PWA情報
+      const pwaInfo = document.getElementById('debugPWAInfo');
+      const swStatus = navigator.serviceWorker?.controller ? '✅ 有効' : '❌ 無効';
+      pwaInfo.innerHTML = `
+        Service Worker: ${swStatus}<br>
+        スタンドアロン: ${window.matchMedia('(display-mode: standalone)').matches ? '✅' : '❌'}<br>
+        プロトコル: ${location.protocol}
+      `;
+      
+      // 操作ログ
+      const logOutput = document.getElementById('debugLogOutput');
+      logOutput.value = debugLog.slice(-30).join('\n');
+    }
+
+    // デバッグ用：強制同期
+    async function debugForceSync() {
+      if (!FirebaseSync.user) {
+        showToast('ログインしていません');
+        return;
+      }
+      addDebugLog('強制同期開始...');
+      await FirebaseSync.backupToCloud();
+      updateDebugDisplay();
+    }
+
+    // デバッグ用：クラウドデータ確認
+    async function debugShowCloudData() {
+      if (!FirebaseSync.user || !FirebaseSync.firestore) {
+        showToast('ログインしていません');
+        return;
+      }
+      try {
+        const docRef = FirebaseSync.firestore.collection('users').doc(FirebaseSync.user.uid);
+        const doc = await docRef.get();
+        if (doc.exists) {
+          const data = doc.data();
+          const info = `=== クラウドデータ ===
+更新日時: ${data.updatedAt?.toDate?.().toLocaleString() || '不明'}
+PRO状態: ${data.isPro ? '✅' : '❌'}
+シフトデータ: ${data.shift ? '✅' : '❌'}
+家計簿データ: ${data.kakeibo ? '✅' : '❌'}
+メモデータ: ${data.memo ? '✅' : '❌'}`;
+          alert(info);
+          addDebugLog('クラウドデータ確認完了');
+        } else {
+          alert('クラウドにデータがありません');
+        }
+      } catch (e) {
+        alert('取得失敗: ' + e.message);
+        addDebugLog('クラウドデータ取得失敗: ' + e.message);
+      }
+    }
+
+    // デバッグ用：生データ出力
+    async function debugExportRawData() {
+      try {
+        const rawData = {
+          exportDate: new Date().toISOString(),
+          isPro: isPro,
+          currentYear: currentYear,
+          memoData: memoData,
+          shiftPatterns: shiftPatterns,
+          designSettings: designSettings,
+          statusColorSettings: statusColorSettings,
+          dayStatusColors: dayStatusColors,
+          localStorage: {...localStorage},
+          firebaseUser: FirebaseSync.user ? { uid: FirebaseSync.user.uid, email: FirebaseSync.user.email } : null
+        };
+        
+        const blob = new Blob([JSON.stringify(rawData, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `debug_export_${new Date().toISOString().slice(0,10)}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+        addDebugLog('生データ出力完了');
+        showToast('エクスポートしました');
+      } catch (e) {
+        addDebugLog('生データ出力失敗: ' + e.message);
+        showToast('エクスポート失敗');
+      }
+    }
+
+    // デバッグ用：ストレージキー一覧
+    function debugShowStorageKeys() {
+      const lsKeys = Object.keys(localStorage).sort();
+      const info = `=== localStorage (${lsKeys.length}キー) ===\n${lsKeys.map(k => `${k}: ${localStorage[k].length}文字`).join('\n')}`;
+      alert(info);
+      addDebugLog('ストレージキー一覧表示');
+    }
+
+    // デバッグ用：SW再登録
+    async function debugReloadSW() {
+      if ('serviceWorker' in navigator) {
+        try {
+          const registrations = await navigator.serviceWorker.getRegistrations();
+          for (const reg of registrations) {
+            await reg.unregister();
+          }
+          addDebugLog('SW登録解除完了');
+          showToast('Service Worker再登録中... リロードしてください');
+        } catch (e) {
+          addDebugLog('SW再登録失敗: ' + e.message);
+        }
+      }
+    }
+
+    // デバッグ用：PRO状態完全リセット
+    async function debugResetPro() {
+      if (confirm('PRO状態を完全にリセットしますか？\n（ローカル・クラウド両方）')) {
+        isPro = false;
+        localStorage.removeItem('ntrr_pro_code');
+        saveData();
+        updateProUI();
+        
+        if (FirebaseSync.user) {
+          try {
+            await FirebaseSync.setProStatus(false);
+            addDebugLog('PRO状態リセット（クラウド含む）');
+          } catch (e) {
+            addDebugLog('PRO状態リセット（ローカルのみ）');
+          }
+        } else {
+          addDebugLog('PRO状態リセット（ローカル）');
+        }
+        
+        updateDebugDisplay();
+        showToast('PRO状態をリセットしました');
+      }
+    }
+
+    // デバッグ用：ログクリア
+    function debugClearLog() {
+      debugLog = [];
+      addDebugLog('ログをクリアしました');
+      updateDebugDisplay();
+    }
+
+    async function toggleProStatus(status) {
       isPro = status;
       saveData();
       updateProUI();
       updateDebugDisplay();
       addDebugLog(`PRO版を${status ? 'ON' : 'OFF'}に変更`);
-      showToast(`PRO版を${status ? '有効' : '無効'}にしました`);
+      
+      // Firebase連携中ならクラウドにも保存
+      if (FirebaseSync.user) {
+        try {
+          await FirebaseSync.setProStatus(status);
+          showToast(`PRO版を${status ? '有効' : '無効'}にしました（クラウド同期済み）`);
+        } catch (e) {
+          showToast(`PRO版を${status ? '有効' : '無効'}にしました（ローカルのみ）`);
+        }
+      } else {
+        showToast(`PRO版を${status ? '有効' : '無効'}にしました`);
+      }
     }
 
     function copyDebugLog() {
@@ -2744,10 +3130,9 @@
     // ========== メニュー ==========
     function toggleOptionsMenu() {
       const menu = document.getElementById('optionsMenu');
-      const overlay = document.getElementById('overlay');
       menu.classList.toggle('show');
-      overlay.classList.toggle('show');
     }
+    window.toggleOptionsMenu = toggleOptionsMenu;
 
     function closeOptionsMenu() {
       document.getElementById('optionsMenu').classList.remove('show');
@@ -2756,7 +3141,6 @@
     function closeAllMenus() {
       document.getElementById('floatingMenu').classList.remove('show');
       document.getElementById('optionsMenu').classList.remove('show');
-      document.getElementById('overlay').classList.remove('show');
       activeMenuTarget = null;
     }
 
@@ -2844,7 +3228,13 @@
           const lines = textarea.value.split('\n').map(s => s.trim()).filter(s => s !== '');
           const preview = document.getElementById(`preview${index}`);
           if (lines.length > 0) {
-            preview.innerHTML = 'プレビュー: ' + lines.slice(0, 20).map(p => `<span>${p}</span>`).join('') + (lines.length > 20 ? '...' : '');
+            // XSS対策: textContentで安全にエスケープ
+            const spans = lines.slice(0, 20).map(p => {
+              const span = document.createElement('span');
+              span.textContent = p;
+              return span.outerHTML;
+            }).join('');
+            preview.innerHTML = 'プレビュー: ' + spans + (lines.length > 20 ? '...' : '');
           } else {
             preview.innerHTML = 'プレビュー: (未設定)';
           }
@@ -2934,7 +3324,13 @@
 
       const [year, month, day] = pendingShiftStart.split('-').map(Number);
       const pattern = shiftPatterns[selectedPatternIndex];
-      const totalDays = pattern.length * selectedRepeatCount;
+      let totalDays = pattern.length * selectedRepeatCount;
+      
+      // 365日で打ち切り
+      if (totalDays > 365) {
+        totalDays = 365;
+        showToast('⚠️ 365日を超えるため打ち切りました');
+      }
 
       let currentDate = new Date(year, month - 1, day);
       let patternIndex = selectedStartPosition;
@@ -3011,18 +3407,15 @@
       const btn = event.currentTarget;
       const rect = btn.getBoundingClientRect();
       const menu = document.getElementById('floatingMenu');
-      const overlay = document.getElementById('overlay');
       
       activeMenuTarget = { key, index };
       
       menu.style.top = rect.top + 'px';
       menu.classList.add('show');
-      overlay.classList.add('show');
     }
 
     function closeMenu() {
       document.getElementById('floatingMenu').classList.remove('show');
-      document.getElementById('overlay').classList.remove('show');
       activeMenuTarget = null;
     }
 
@@ -3116,6 +3509,8 @@
           // ステータスカラーを適用
           if (statusColor !== 'transparent') {
             memosContainer.style.backgroundColor = statusColor;
+            // 薄い背景色なので文字は暗い色に
+            memosContainer.style.setProperty('--memo-text-color', '#333');
           }
 
           let memos = getMemos(key);
@@ -3132,6 +3527,7 @@
             const input = document.createElement('input');
             input.type = 'text';
             input.className = 'memo-input';
+            input.maxLength = 5000;
             if (index === 0 && holidayName && memo === holidayName) {
               input.classList.add('holiday-auto');
             }
@@ -3204,7 +3600,7 @@
       <div class="kakeibo-container">
         <!-- 1行目: 名前入力 + 今月 + 新規登録 -->
         <div class="kakeibo-row">
-          <input type="text" class="kakeibo-name-input" id="kakeiboNameInput" placeholder="2026年1月 / ローン返済表など">
+          <input type="text" class="kakeibo-name-input" id="kakeiboNameInput" placeholder="2026年1月 / ローン返済表など" maxlength="50">
           <button class="kakeibo-btn" onclick="Kakeibo.setThisMonth()">今月</button>
           <button class="kakeibo-btn kakeibo-btn-primary" onclick="Kakeibo.registerNew()">新規登録</button>
         </div>
@@ -3219,39 +3615,12 @@
             <option value="delete">削除</option>
           </select>
           <button class="kakeibo-btn" onclick="Kakeibo.executeAction()">実行</button>
-        </div>
-        <!-- 3行目: インポート/エクスポート/履歴 -->
-        <div class="kakeibo-row">
-          <button class="kakeibo-btn" onclick="document.getElementById('kakeiboImportFile').click()">インポート</button>
-          <button class="kakeibo-btn" onclick="Kakeibo.exportData()">エクスポート</button>
-          <button class="kakeibo-btn" onclick="Kakeibo.toggleHistory()">履歴 <span id="kakeiboHistoryCount">(0)</span></button>
           <input type="file" id="kakeiboImportFile" accept=".json" style="display:none" onchange="Kakeibo.importData(this)">
-        </div>
-        <!-- 4行目: クラウド同期（オプション） -->
-        <div class="kakeibo-row cloud-sync-row">
-          <button class="kakeibo-btn" onclick="Kakeibo.toggleCloudSettings()">☁️同期設定</button>
-          <button class="kakeibo-btn" onclick="Kakeibo.cloudDownload()">↓読込</button>
-          <button class="kakeibo-btn" onclick="Kakeibo.cloudUpload()">↑書込</button>
-          <span class="cloud-status" id="kakeiboCloudStatus"></span>
-        </div>
-        <!-- クラウド同期設定（トグル表示） -->
-        <div class="cloud-settings" id="kakeiboCloudSettings" style="display:none;">
-          <div class="cloud-settings-inner">
-            <label>JSONBin API Key:<input type="password" id="kakeiboApiKey" placeholder="$2a$10$xxxxx"></label>
-            <label>Bin ID:<input type="text" id="kakeiboBinId" placeholder="xxxxxxxxxxxxxx"></label>
-            <div class="cloud-settings-buttons">
-              <button class="kakeibo-btn-small" onclick="Kakeibo.saveCloudSettings()">保存</button>
-              <button class="kakeibo-btn-small" onclick="Kakeibo.toggleCloudSettings()">閉じる</button>
-            </div>
-            <div class="cloud-help">
-              <a href="https://jsonbin.io/" target="_blank">jsonbin.io</a>で無料アカウント作成→API Key取得→新規Bin作成
-            </div>
-          </div>
         </div>
         <!-- 履歴スライダー（トグル表示） -->
         <div class="kakeibo-history-slider" id="kakeiboHistorySlider" style="display:none;">
           <div class="kakeibo-history-header">
-            <span>更新履歴（100件まで）</span>
+            <span>更新履歴（50件まで）</span>
             <button class="kakeibo-btn-small" onclick="Kakeibo.toggleHistory()">閉じる</button>
           </div>
           <div class="kakeibo-history-scroll" id="kakeiboHistoryScroll"></div>
@@ -3263,22 +3632,22 @@
         </div>
         <div class="section">
           <h3>前月繰越</h3>
-          <input type="text" id="kakeiboCarryOver" style="width:100%;padding:8px;font-size:14px;border:1px solid #ccc;border-radius:4px;">
+          <input type="text" id="kakeiboCarryOver" maxlength="50" style="width:100%;padding:8px;font-size:14px;border:1px solid #ccc;border-radius:4px;">
           <div class="total" id="kakeiboCarryOverTotal">¥0</div>
         </div>
         <div class="section">
           <h3>収入</h3>
-          <textarea class="income-area" id="kakeiboIncomeArea"></textarea>
+          <textarea class="income-area" id="kakeiboIncomeArea" maxlength="5000"></textarea>
           <div class="total" id="kakeiboIncomeTotal">¥0</div>
         </div>
         <div class="section">
           <h3>支出</h3>
-          <textarea class="expense-area" id="kakeiboExpenseArea"></textarea>
+          <textarea class="expense-area" id="kakeiboExpenseArea" maxlength="5000"></textarea>
           <div class="total" id="kakeiboExpenseTotal">¥0</div>
         </div>
         <div class="section">
           <h3>テンプレート</h3>
-          <textarea class="template-area" id="kakeiboTemplateArea"></textarea>
+          <textarea class="template-area" id="kakeiboTemplateArea" maxlength="5000"></textarea>
           <div class="template-buttons">
             <button onclick="Kakeibo.pasteTemplate()">支出に貼付</button>
             <button onclick="Kakeibo.copyTemplate()">コピー</button>
@@ -3290,7 +3659,6 @@
             <li><strong>数字を自動認識</strong>：半角・全角どちらもOK</li>
             <li><strong>自動バックアップ</strong>：入力後2秒で履歴に保存</li>
             <li><strong>文字より右の数字は無視</strong>：コメントとして使えます</li>
-            <li><strong>☁️クラウド同期</strong>：<a href="https://jsonbin.io/" target="_blank" style="color:#2196F3;">jsonbin.io</a>（無料）でアカウント作成→API KeyとBin IDを設定すると、端末間でデータ同期ができます</li>
           </ul>
         </div>
       </div>
@@ -3303,7 +3671,7 @@
       <div class="memo-container-new">
         <!-- 1行目: 名前入力 + 新規登録 -->
         <div class="memo-row">
-          <input type="text" class="memo-name-input" id="memoNameInput" placeholder="メモの名前">
+          <input type="text" class="memo-name-input" id="memoNameInput" placeholder="メモの名前" maxlength="100">
           <button class="memo-btn memo-btn-primary" onclick="Memo.registerNew()">新規登録</button>
         </div>
         <!-- 2行目: 一覧 + 操作 -->
@@ -3318,39 +3686,12 @@
             <option value="delete">削除</option>
           </select>
           <button class="memo-btn" onclick="Memo.executeAction()">実行</button>
-        </div>
-        <!-- 3行目: インポート/エクスポート/履歴 -->
-        <div class="memo-row">
-          <button class="memo-btn" onclick="document.getElementById('memoImportFile').click()">インポート</button>
-          <button class="memo-btn" onclick="Memo.exportData()">エクスポート</button>
-          <button class="memo-btn" onclick="Memo.toggleHistory()">履歴 <span id="memoHistoryCount">(0)</span></button>
           <input type="file" id="memoImportFile" accept=".json" style="display:none" onchange="Memo.importData(this)">
-        </div>
-        <!-- 4行目: クラウド同期（オプション） -->
-        <div class="memo-row cloud-sync-row">
-          <button class="memo-btn" onclick="Memo.toggleCloudSettings()">☁️同期設定</button>
-          <button class="memo-btn" onclick="Memo.cloudDownload()">↓読込</button>
-          <button class="memo-btn" onclick="Memo.cloudUpload()">↑書込</button>
-          <span class="cloud-status" id="memoCloudStatus"></span>
-        </div>
-        <!-- クラウド同期設定（トグル表示） -->
-        <div class="cloud-settings" id="memoCloudSettings" style="display:none;">
-          <div class="cloud-settings-inner">
-            <label>JSONBin API Key:<input type="password" id="memoApiKey" placeholder="$2a$10$xxxxx"></label>
-            <label>Bin ID:<input type="text" id="memoBinId" placeholder="xxxxxxxxxxxxxx"></label>
-            <div class="cloud-settings-buttons">
-              <button class="memo-btn-small" onclick="Memo.saveCloudSettings()">保存</button>
-              <button class="memo-btn-small" onclick="Memo.toggleCloudSettings()">閉じる</button>
-            </div>
-            <div class="cloud-help">
-              <a href="https://jsonbin.io/" target="_blank">jsonbin.io</a>で無料アカウント作成→API Key取得→新規Bin作成
-            </div>
-          </div>
         </div>
         <!-- 履歴スライダー -->
         <div class="memo-history-slider" id="memoHistorySlider" style="display:none;">
           <div class="memo-history-header">
-            <span>更新履歴（100件まで）</span>
+            <span>更新履歴（50件まで）</span>
             <button class="memo-btn-small" onclick="Memo.toggleHistory()">閉じる</button>
           </div>
           <div class="memo-history-scroll" id="memoHistoryScroll"></div>
@@ -3369,13 +3710,6 @@
         <div class="memo-editor-wrapper">
           <div id="memoEditor" class="memo-editor" contenteditable="true" data-empty="true"></div>
         </div>
-        <div class="memo-help-section">
-          <h4>💡ヒント</h4>
-          <ul>
-            <li><strong>自動バックアップ</strong>：入力後2秒で履歴に保存</li>
-            <li><strong>☁️クラウド同期</strong>：<a href="https://jsonbin.io/" target="_blank">jsonbin.io</a>（無料）でアカウント作成→API KeyとBin IDを設定すると、端末間でデータ同期ができます</li>
-          </ul>
-        </div>
       </div>
     </div>
   </div><!-- /memo-tab -->
@@ -3389,12 +3723,16 @@
       document.querySelector(`.main-tab-btn.${tab}-tab`).classList.add('active');
       document.getElementById(`${tab}-tab`).classList.add('active');
       localStorage.setItem('currentMainTab', tab);
+      
+      // メニュー表示切り替え用のbodyクラスを更新
+      document.body.classList.remove('current-tab-shift', 'current-tab-kakeibo', 'current-tab-memo');
+      document.body.classList.add(`current-tab-${tab}`);
     }
 
     // ========== 家計簿モジュール（新仕様）==========
     const Kakeibo = {
       currentKey: null,          // 現在編集中のキー
-      history: [],               // 履歴（100件）
+      history: [],               // 履歴（50件）
       saveTimeout: null,         // debounce用
       historyVisible: false,     // 履歴表示状態
       
@@ -3404,13 +3742,14 @@
         this.updateHistoryCount();
       },
       async saveHistoryToDB() {
-        while (this.history.length > 100) this.history.pop();
+        while (this.history.length > 50) this.history.pop();
         await saveToDB('kakeibo_history', this.history);
         this.updateHistoryCount();
         if (this.historyVisible) this.renderHistory();
       },
       updateHistoryCount() {
-        document.getElementById('kakeiboHistoryCount').textContent = `(${this.history.length})`;
+        const el = document.getElementById('kakeiboHistoryCount');
+        if (el) el.textContent = `(${this.history.length})`;
       },
       async addHistory(type) {
         const data = this.getCurrentData();
@@ -3477,9 +3816,9 @@
       onInput(e) {
         this.updateBalanceDisplay();
         this.saveCurrentData();
-        // debounce: 0.5秒後にバックアップ
+        // debounce: 1秒後にバックアップ
         clearTimeout(this.saveTimeout);
-        this.saveTimeout = setTimeout(() => this.addHistory('input'), 500);
+        this.saveTimeout = setTimeout(() => this.addHistory('input'), 1000);
       },
       onPaste(e) {
         // ペースト時は即座にバックアップ予約（入力イベントの後に発火）
@@ -3747,102 +4086,13 @@
         for (const key of keysToRemove) {
           localStorage.removeItem(key);
         }
-      },
-      
-      // ========== クラウド同期（JSONBin.io） ==========
-      toggleCloudSettings() {
-        const el = document.getElementById('kakeiboCloudSettings');
-        el.style.display = el.style.display === 'none' ? 'block' : 'none';
-        if (el.style.display === 'block') {
-          document.getElementById('kakeiboApiKey').value = localStorage.getItem('kakeibo_cloud_apikey') || '';
-          document.getElementById('kakeiboBinId').value = localStorage.getItem('kakeibo_cloud_binid') || '';
-        }
-      },
-      saveCloudSettings() {
-        localStorage.setItem('kakeibo_cloud_apikey', document.getElementById('kakeiboApiKey').value.trim());
-        localStorage.setItem('kakeibo_cloud_binid', document.getElementById('kakeiboBinId').value.trim());
-        this.toggleCloudSettings();
-        this.setCloudStatus('設定を保存しました', 'success');
-      },
-      setCloudStatus(msg, type) {
-        const el = document.getElementById('kakeiboCloudStatus');
-        el.textContent = msg;
-        el.className = 'cloud-status ' + (type || '');
-        if (type === 'success') setTimeout(() => { el.textContent = ''; }, 3000);
-      },
-      async cloudDownload() {
-        const apiKey = localStorage.getItem('kakeibo_cloud_apikey');
-        const binId = localStorage.getItem('kakeibo_cloud_binid');
-        if (!apiKey || !binId) { alert('同期設定を先に行ってください'); return; }
-        this.setCloudStatus('読み込み中...', 'loading');
-        try {
-          const res = await fetch(`https://api.jsonbin.io/v3/b/${binId}/latest`, {
-            headers: { 'X-Master-Key': apiKey }
-          });
-          if (!res.ok) throw new Error('読み込み失敗: ' + res.status);
-          const json = await res.json();
-          const importObj = json.record;
-          if (!importObj.list || !importObj.data) throw new Error('無効なデータ形式');
-          // インポート処理（既存を履歴にバックアップ）
-          const currentList = await this.getDataList();
-          for (const item of currentList) {
-            const data = await this.loadDataByKey(item.key);
-            if (data) {
-              this.history.unshift({
-                date: new Date().toISOString(), type: 'cloud-backup',
-                name: item.name + ' (同期前)', data: data
-              });
-            }
-            await deleteFromDB('kakeibo_data_' + item.key);
-          }
-          await this.saveDataList(importObj.list);
-          for (const item of importObj.list) {
-            if (importObj.data[item.key]) {
-              await saveToDB('kakeibo_data_' + item.key, importObj.data[item.key]);
-            }
-          }
-          if (importObj.history) this.history = [...importObj.history, ...this.history];
-          await this.saveHistoryToDB();
-          await this.updateListSelect();
-          this.currentKey = null;
-          document.getElementById('kakeiboNameInput').value = '';
-          this.setCurrentData({ carryOver:'', income:'', expense:'', template:'' });
-          await this.loadLastEdited();
-          this.setCloudStatus('読み込み完了', 'success');
-        } catch (e) {
-          this.setCloudStatus('エラー: ' + e.message, 'error');
-        }
-      },
-      async cloudUpload() {
-        const apiKey = localStorage.getItem('kakeibo_cloud_apikey');
-        const binId = localStorage.getItem('kakeibo_cloud_binid');
-        if (!apiKey || !binId) { alert('同期設定を先に行ってください'); return; }
-        this.setCloudStatus('書き込み中...', 'loading');
-        try {
-          const list = await this.getDataList();
-          const exportObj = { list: [], data: {}, history: this.history };
-          for (const item of list) {
-            exportObj.list.push(item);
-            const data = await this.loadDataByKey(item.key);
-            if (data) exportObj.data[item.key] = data;
-          }
-          const res = await fetch(`https://api.jsonbin.io/v3/b/${binId}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json', 'X-Master-Key': apiKey },
-            body: JSON.stringify(exportObj)
-          });
-          if (!res.ok) throw new Error('書き込み失敗: ' + res.status);
-          this.setCloudStatus('書き込み完了', 'success');
-        } catch (e) {
-          this.setCloudStatus('エラー: ' + e.message, 'error');
-        }
       }
     };
 
     // ========== メモモジュール（新仕様）==========
     const Memo = {
       currentKey: null,          // 現在編集中のキー
-      history: [],               // 履歴（100件）
+      history: [],               // 履歴（50件）
       saveTimeout: null,         // debounce用
       historyVisible: false,     // 履歴表示状態
       currentColor: null,        // 現在の文字色
@@ -3855,13 +4105,14 @@
         this.updateHistoryCount();
       },
       async saveHistoryToDB() {
-        while (this.history.length > 100) this.history.pop();
+        while (this.history.length > 50) this.history.pop();
         await saveToDB('memo_history', this.history);
         this.updateHistoryCount();
         if (this.historyVisible) this.renderHistory();
       },
       updateHistoryCount() {
-        document.getElementById('memoHistoryCount').textContent = `(${this.history.length})`;
+        const el = document.getElementById('memoHistoryCount');
+        if (el) el.textContent = `(${this.history.length})`;
       },
       async addHistory(type) {
         const content = this.editor.innerHTML;
@@ -3870,7 +4121,7 @@
           date: new Date().toISOString(),
           type: type, // 'input', 'paste'
           name: this.currentKey ? (await this.getNameByKey(this.currentKey)) : '(未保存)',
-          content: content
+          content: content.slice(0, 50000) // 履歴は5万文字まで
         });
         await this.saveHistoryToDB();
       },
@@ -3915,15 +4166,28 @@
       
       // ========== 入力検知・自動バックアップ ==========
       onInput(e) {
+        // 10万文字制限
+        const text = this.editor.innerText || '';
+        if (text.length > 100000) {
+          // 超過分をカット
+          const selection = window.getSelection();
+          const range = selection.getRangeAt(0);
+          this.editor.innerText = text.slice(0, 100000);
+          // カーソルを末尾に
+          range.selectNodeContents(this.editor);
+          range.collapse(false);
+          selection.removeAllRanges();
+          selection.addRange(range);
+        }
         this.updatePlaceholder();
         this.saveCurrentData();
         this.showSaving();
-        // debounce: 0.5秒後にバックアップ
+        // debounce: 1秒後にバックアップ
         clearTimeout(this.saveTimeout);
         this.saveTimeout = setTimeout(() => {
           this.addHistory('input');
           this.showSaved();
-        }, 500);
+        }, 1000);
       },
       onPaste(e) {
         e.preventDefault();
@@ -4198,98 +4462,73 @@
           localStorage.removeItem('memoList');
           localStorage.removeItem('currentMemoId');
         }
-      },
-      
-      // ========== クラウド同期（JSONBin.io） ==========
-      toggleCloudSettings() {
-        const el = document.getElementById('memoCloudSettings');
-        el.style.display = el.style.display === 'none' ? 'block' : 'none';
-        if (el.style.display === 'block') {
-          document.getElementById('memoApiKey').value = localStorage.getItem('memo_cloud_apikey') || '';
-          document.getElementById('memoBinId').value = localStorage.getItem('memo_cloud_binid') || '';
-        }
-      },
-      saveCloudSettings() {
-        localStorage.setItem('memo_cloud_apikey', document.getElementById('memoApiKey').value.trim());
-        localStorage.setItem('memo_cloud_binid', document.getElementById('memoBinId').value.trim());
-        this.toggleCloudSettings();
-        this.setCloudStatus('設定を保存しました', 'success');
-      },
-      setCloudStatus(msg, type) {
-        const el = document.getElementById('memoCloudStatus');
-        el.textContent = msg;
-        el.className = 'cloud-status ' + (type || '');
-        if (type === 'success') setTimeout(() => { el.textContent = ''; }, 3000);
-      },
-      async cloudDownload() {
-        const apiKey = localStorage.getItem('memo_cloud_apikey');
-        const binId = localStorage.getItem('memo_cloud_binid');
-        if (!apiKey || !binId) { alert('同期設定を先に行ってください'); return; }
-        this.setCloudStatus('読み込み中...', 'loading');
-        try {
-          const res = await fetch(`https://api.jsonbin.io/v3/b/${binId}/latest`, {
-            headers: { 'X-Master-Key': apiKey }
-          });
-          if (!res.ok) throw new Error('読み込み失敗: ' + res.status);
-          const json = await res.json();
-          const importObj = json.record;
-          if (!importObj.list || !importObj.data) throw new Error('無効なデータ形式');
-          // インポート処理（既存を履歴にバックアップ）
-          const currentList = await this.getDataList();
-          for (const item of currentList) {
-            const data = await this.loadDataByKey(item.key);
-            if (data) {
-              this.history.unshift({
-                date: new Date().toISOString(), type: 'cloud-backup',
-                name: item.name + ' (同期前)', content: data
-              });
-            }
-            await deleteFromDB('memo_data_' + item.key);
-          }
-          await this.saveDataList(importObj.list);
-          for (const item of importObj.list) {
-            if (importObj.data[item.key]) {
-              await saveToDB('memo_data_' + item.key, importObj.data[item.key]);
-            }
-          }
-          if (importObj.history) this.history = [...importObj.history, ...this.history];
-          await this.saveHistoryToDB();
-          await this.updateListSelect();
-          this.currentKey = null;
-          this.editor.innerHTML = '';
-          document.getElementById('memoNameInput').value = '';
-          this.updatePlaceholder();
-          await this.loadLastEdited();
-          this.setCloudStatus('読み込み完了', 'success');
-        } catch (e) {
-          this.setCloudStatus('エラー: ' + e.message, 'error');
-        }
-      },
-      async cloudUpload() {
-        const apiKey = localStorage.getItem('memo_cloud_apikey');
-        const binId = localStorage.getItem('memo_cloud_binid');
-        if (!apiKey || !binId) { alert('同期設定を先に行ってください'); return; }
-        this.setCloudStatus('書き込み中...', 'loading');
-        try {
-          const list = await this.getDataList();
-          const exportObj = { list: [], data: {}, history: this.history };
-          for (const item of list) {
-            exportObj.list.push(item);
-            const data = await this.loadDataByKey(item.key);
-            if (data) exportObj.data[item.key] = data;
-          }
-          const res = await fetch(`https://api.jsonbin.io/v3/b/${binId}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json', 'X-Master-Key': apiKey },
-            body: JSON.stringify(exportObj)
-          });
-          if (!res.ok) throw new Error('書き込み失敗: ' + res.status);
-          this.setCloudStatus('書き込み完了', 'success');
-        } catch (e) {
-          this.setCloudStatus('エラー: ' + e.message, 'error');
-        }
       }
     };
+
+    // ========== バージョン管理 ==========
+    async function checkAndMigrateVersion() {
+      try {
+        const savedVersion = await loadFromDB('app_version');
+        
+        if (!savedVersion) {
+          // 初回起動または既存ユーザー（バージョン管理導入前）
+          addDebugLog(`初回バージョン記録: ${APP_VERSION}`);
+          await saveToDB('app_version', APP_VERSION);
+          return;
+        }
+        
+        if (savedVersion === APP_VERSION) {
+          // バージョン同じ、何もしない
+          return;
+        }
+        
+        // バージョンが違う → マイグレーション実行
+        addDebugLog(`バージョン更新検出: ${savedVersion} → ${APP_VERSION}`);
+        await migrateData(savedVersion, APP_VERSION);
+        await saveToDB('app_version', APP_VERSION);
+        
+      } catch (e) {
+        addDebugLog('バージョンチェックエラー: ' + e.message);
+      }
+    }
+    
+    async function migrateData(fromVersion, toVersion) {
+      // バージョン番号を数値配列に変換 (例: "1.0.0" → [1, 0, 0])
+      const parseVersion = (v) => v.split('.').map(Number);
+      const from = parseVersion(fromVersion);
+      const to = parseVersion(toVersion);
+      
+      addDebugLog(`マイグレーション開始: ${fromVersion} → ${toVersion}`);
+      
+      // 各バージョンのマイグレーション処理
+      // 将来のアップデート時にここに追加していく
+      
+      /*
+      // 例: 1.0.0 → 1.1.0 のマイグレーション
+      if (compareVersion(from, [1, 0, 0]) <= 0 && compareVersion(to, [1, 1, 0]) >= 0) {
+        // 1.1.0 で追加された新しいデータ構造への変換
+        addDebugLog('1.1.0 マイグレーション実行');
+        // ... 具体的な処理 ...
+      }
+      
+      // 例: 1.1.0 → 1.2.0 のマイグレーション
+      if (compareVersion(from, [1, 1, 0]) <= 0 && compareVersion(to, [1, 2, 0]) >= 0) {
+        addDebugLog('1.2.0 マイグレーション実行');
+        // ... 具体的な処理 ...
+      }
+      */
+      
+      addDebugLog('マイグレーション完了');
+    }
+    
+    // バージョン比較 (a < b: -1, a == b: 0, a > b: 1)
+    function compareVersion(a, b) {
+      for (let i = 0; i < 3; i++) {
+        if (a[i] < b[i]) return -1;
+        if (a[i] > b[i]) return 1;
+      }
+      return 0;
+    }
 
     // ========== Firebase同期モジュール ==========
     const FirebaseSync = {
@@ -4297,6 +4536,22 @@
       firestore: null,
       syncTimeout: null,
       lastSyncTime: null,
+      syncing: false,  // 同期中フラグ
+      restoring: false, // 復元中フラグ
+      
+      // リトライ付き実行（指数バックオフ、最大3回）
+      async withRetry(fn, maxRetries = 3) {
+        for (let i = 0; i < maxRetries; i++) {
+          try {
+            return await fn();
+          } catch (e) {
+            if (i === maxRetries - 1) throw e;
+            // 1秒 → 2秒 → 4秒 と待機
+            await new Promise(r => setTimeout(r, 1000 * Math.pow(2, i)));
+            addDebugLog(`リトライ ${i + 1}/${maxRetries - 1}...`);
+          }
+        }
+      },
       
       // Firebase設定
       config: {
@@ -4333,32 +4588,71 @@
         }
       },
       
-      // 認証UI更新
+      // 認証UI更新（メニュー内）
       updateAuthUI() {
-        const bar = document.getElementById('firebaseAuthBar');
-        const statusText = document.getElementById('authStatusText');
-        const button = document.getElementById('authButton');
+        const section = document.getElementById('menuAuthSection');
+        const statusText = document.getElementById('menuAuthStatusText');
+        const emailEl = document.getElementById('menuAuthEmail');
+        const button = document.getElementById('menuAuthButton');
+        const proBadge = document.getElementById('menuProBadge');
+        const bottomNotice = document.getElementById('bottomNotice');
+        const bottomNoticeText = document.getElementById('bottomNoticeText');
+        
+        // PRO状態表示
+        if (proBadge) {
+          proBadge.style.display = isPro ? 'block' : 'none';
+        }
         
         if (this.user) {
-          bar.classList.remove('not-logged-in');
-          statusText.textContent = this.user.email || this.user.displayName || 'ログイン中';
+          section.classList.remove('not-logged-in');
+          section.classList.add('logged-in');
+          statusText.textContent = '✓ バックアップ有効';
+          emailEl.textContent = this.user.email || this.user.displayName || '';
+          emailEl.style.display = 'block';
           button.innerHTML = 'ログアウト';
-          button.classList.remove('google-btn');
+          button.classList.remove('google');
+          button.classList.add('logout');
+          // 下部通知も更新
+          bottomNotice.classList.remove('warning');
+          bottomNotice.classList.add('success');
+          bottomNoticeText.textContent = isPro ? '🎉 支援済み ✓ クラウド同期中' : '✓ クラウドバックアップ有効';
         } else {
-          bar.classList.add('not-logged-in');
-          statusText.textContent = 'バックアップ未設定';
+          section.classList.add('not-logged-in');
+          section.classList.remove('logged-in');
+          statusText.textContent = '⚠️ バックアップ未設定';
+          emailEl.style.display = 'none';
           button.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg> Googleでログイン`;
-          button.classList.add('google-btn');
+          button.classList.add('google');
+          button.classList.remove('logout');
+          // 下部通知も更新
+          bottomNotice.classList.add('warning');
+          bottomNotice.classList.remove('success');
+          bottomNoticeText.textContent = isPro ? '🎉 支援済み ☰でバックアップ設定を' : '⚠️ ☰メニューからバックアップ設定をおすすめします';
         }
       },
       
       // 同期ステータス表示
       setSyncStatus(msg, isError = false) {
-        const el = document.getElementById('syncStatus');
-        el.textContent = msg;
-        el.style.color = isError ? '#ffcdd2' : '';
+        const el = document.getElementById('menuSyncStatus');
+        const bottomNoticeText = document.getElementById('bottomNoticeText');
+        if (el) {
+          el.textContent = msg;
+          el.style.color = isError ? '#c00' : '#888';
+        }
+        // 下部にも表示
+        if (msg && bottomNoticeText) {
+          bottomNoticeText.textContent = msg;
+          const notice = document.getElementById('bottomNotice');
+          if (isError) {
+            notice.classList.add('error');
+            notice.classList.remove('success', 'warning');
+          }
+        }
         if (!isError && msg) {
-          setTimeout(() => { el.textContent = ''; }, 3000);
+          setTimeout(() => { 
+            if (el) el.textContent = ''; 
+            this.updateAuthUI(); // 元の状態に戻す
+          }, 3000);
         }
       },
       
@@ -4393,11 +4687,13 @@
       // クラウドにバックアップ実行
       async backupToCloud() {
         if (!this.user || !this.firestore) return;
+        if (this.syncing) return; // 二重実行防止
         
+        this.syncing = true;
         try {
           this.setSyncStatus('バックアップ中...');
           
-          // 各データを収集
+          // 各データを収集（ローカルから読むだけなのでリトライ不要）
           const shiftData = {
             memoData: memoData,
             shiftPatterns: shiftPatterns,
@@ -4420,14 +4716,17 @@
             if (data) memoDataCloud[item.key] = data;
           }
           
-          // Firestoreに保存
-          const docRef = this.firestore.collection('users').doc(this.user.uid);
-          await docRef.set({
-            shift: shiftData,
-            kakeibo: { list: kakeiboList, data: kakeiboData },
-            memo: { list: memoList, data: memoDataCloud },
-            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-          }, { merge: true });
+          // Firestoreに保存（リトライ付き）
+          await this.withRetry(async () => {
+            const docRef = this.firestore.collection('users').doc(this.user.uid);
+            await docRef.set({
+              shift: shiftData,
+              kakeibo: { list: kakeiboList, data: kakeiboData },
+              memo: { list: memoList, data: memoDataCloud },
+              isPro: isPro,
+              updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            }, { merge: true });
+          });
           
           this.lastSyncTime = new Date();
           this.setSyncStatus('✓ バックアップ完了');
@@ -4435,28 +4734,59 @@
         } catch (e) {
           this.setSyncStatus('バックアップ失敗', true);
           addDebugLog('Firebaseバックアップ失敗: ' + e.message);
+        } finally {
+          this.syncing = false;
+        }
+      },
+      
+      // PRO状態をクラウドに保存
+      async setProStatus(status) {
+        if (!this.user || !this.firestore) return;
+        
+        try {
+          const docRef = this.firestore.collection('users').doc(this.user.uid);
+          await docRef.set({
+            isPro: status,
+            proUpdatedAt: firebase.firestore.FieldValue.serverTimestamp()
+          }, { merge: true });
+          addDebugLog('PRO状態をFirestoreに保存: ' + (status ? 'PRO' : '通常'));
+        } catch (e) {
+          addDebugLog('PRO状態の保存失敗: ' + e.message);
+          throw e;
         }
       },
       
       // クラウドから復元
       async restoreFromCloud() {
         if (!this.user || !this.firestore) return;
+        if (this.restoring) return; // 二重実行防止
         
+        this.restoring = true;
         try {
           this.setSyncStatus('データ確認中...');
           
-          const docRef = this.firestore.collection('users').doc(this.user.uid);
-          const doc = await docRef.get();
+          // クラウドからデータ取得（リトライ付き）
+          const cloudData = await this.withRetry(async () => {
+            const docRef = this.firestore.collection('users').doc(this.user.uid);
+            const doc = await docRef.get();
+            return doc.exists ? doc.data() : null;
+          });
           
-          if (!doc.exists) {
+          if (!cloudData) {
             this.setSyncStatus('新規ユーザー（初回バックアップ待機）');
             // 初回は現在のローカルデータをバックアップ
             setTimeout(() => this.backupToCloud(), 2000);
             return;
           }
           
-          const cloudData = doc.data();
           const cloudTime = cloudData.updatedAt?.toDate?.() || new Date(0);
+          
+          // クラウドのPRO状態を確認（常に反映）
+          if (cloudData.isPro !== undefined) {
+            isPro = cloudData.isPro;
+            updateProUI();
+            addDebugLog('PRO状態をクラウドから復元: ' + (isPro ? 'PRO' : '通常'));
+          }
           
           // ローカルの最終更新時刻を取得
           const localTime = await loadFromDB('lastSyncTime');
@@ -4489,62 +4819,81 @@
         } catch (e) {
           this.setSyncStatus('復元確認失敗', true);
           addDebugLog('Firebase復元確認失敗: ' + e.message);
+        } finally {
+          this.restoring = false;
         }
       },
       
-      // クラウドデータを適用
+      // クラウドデータを適用（トランザクション的に処理）
       async applyCloudData(cloudData) {
-        // シフトデータ復元
+        // 1. まず全データをメモリに準備（この段階ではDBに書き込まない）
+        const writes = [];
+        
+        // シフトデータ準備
         if (cloudData.shift) {
           if (cloudData.shift.memoData) {
-            memoData = cloudData.shift.memoData;
-            await saveToDB('memoData', memoData);
+            writes.push({ key: 'memoData', value: cloudData.shift.memoData, apply: () => { memoData = cloudData.shift.memoData; } });
           }
           if (cloudData.shift.shiftPatterns) {
-            shiftPatterns = cloudData.shift.shiftPatterns;
-            await saveToDB('shiftPatterns', shiftPatterns);
+            writes.push({ key: 'shiftPatterns', value: cloudData.shift.shiftPatterns, apply: () => { shiftPatterns = cloudData.shift.shiftPatterns; } });
           }
           if (cloudData.shift.designSettings) {
-            designSettings = cloudData.shift.designSettings;
-            await saveToDB('designSettings', designSettings);
-            applyTheme();
+            writes.push({ key: 'designSettings', value: cloudData.shift.designSettings, apply: () => { designSettings = cloudData.shift.designSettings; } });
           }
           if (cloudData.shift.statusColorSettings) {
-            statusColorSettings = cloudData.shift.statusColorSettings;
-            await saveToDB('statusColorSettings', statusColorSettings);
+            writes.push({ key: 'statusColorSettings', value: cloudData.shift.statusColorSettings, apply: () => { statusColorSettings = cloudData.shift.statusColorSettings; } });
           }
           if (cloudData.shift.dayStatusColors) {
-            dayStatusColors = cloudData.shift.dayStatusColors;
-            await saveToDB('dayStatusColors', dayStatusColors);
+            writes.push({ key: 'dayStatusColors', value: cloudData.shift.dayStatusColors, apply: () => { dayStatusColors = cloudData.shift.dayStatusColors; } });
           }
-          renderSchedule();
         }
         
-        // 家計簿データ復元
+        // 家計簿データ準備
         if (cloudData.kakeibo && cloudData.kakeibo.list) {
-          await Kakeibo.saveDataList(cloudData.kakeibo.list);
+          writes.push({ key: 'kakeibo_list', value: cloudData.kakeibo.list });
           for (const item of cloudData.kakeibo.list) {
             if (cloudData.kakeibo.data[item.key]) {
-              await saveToDB('kakeibo_data_' + item.key, cloudData.kakeibo.data[item.key]);
+              writes.push({ key: 'kakeibo_data_' + item.key, value: cloudData.kakeibo.data[item.key] });
             }
           }
-          await Kakeibo.updateListSelect();
-          await Kakeibo.loadLastEdited();
         }
         
-        // メモデータ復元
+        // メモデータ準備
         if (cloudData.memo && cloudData.memo.list) {
-          await Memo.saveDataList(cloudData.memo.list);
+          writes.push({ key: 'memo_list', value: cloudData.memo.list });
           for (const item of cloudData.memo.list) {
             if (cloudData.memo.data[item.key]) {
-              await saveToDB('memo_data_' + item.key, cloudData.memo.data[item.key]);
+              writes.push({ key: 'memo_data_' + item.key, value: cloudData.memo.data[item.key] });
             }
           }
-          await Memo.updateListSelect();
-          await Memo.loadLastEdited();
         }
         
-        addDebugLog('クラウドデータ復元完了');
+        // 2. 全データを一気にDBに書き込む
+        try {
+          for (const write of writes) {
+            await saveToDB(write.key, write.value);
+            if (write.apply) write.apply(); // メモリ上の変数も更新
+          }
+          
+          // 3. UI更新（全書き込み成功後のみ）
+          if (cloudData.shift) {
+            applyTheme();
+            renderSchedule();
+          }
+          if (cloudData.kakeibo) {
+            await Kakeibo.updateListSelect();
+            await Kakeibo.loadLastEdited();
+          }
+          if (cloudData.memo) {
+            await Memo.updateListSelect();
+            await Memo.loadLastEdited();
+          }
+          
+          addDebugLog('クラウドデータ復元完了');
+        } catch (e) {
+          addDebugLog('復元中にエラー: ' + e.message);
+          throw e; // エラーを上位に伝播
+        }
       }
     };
 
@@ -4558,13 +4907,21 @@
         };
         checkDB();
       });
+      
+      // バージョンチェック & マイグレーション
+      await checkAndMigrateVersion();
+      
       await Kakeibo.init();
       await Memo.init();
       // Firebase初期化
       await FirebaseSync.init();
-      // 前回のタブを復元
-      const savedTab = localStorage.getItem('currentMainTab');
-      if (savedTab) switchMainTab(savedTab);
+      // 前回のタブを復元（デフォルトはshift）
+      const savedTab = localStorage.getItem('currentMainTab') || 'shift';
+      switchMainTab(savedTab);
+      
+      // メニューにバージョン表示
+      const versionDisplay = document.getElementById('menuVersionDisplay');
+      if (versionDisplay) versionDisplay.textContent = `v${APP_VERSION}`;
     });
 
     // ========== ページ離脱時に即保存 ==========
@@ -4587,5 +4944,158 @@
       }
     });
   </script>
+
+  <!-- ========== 下部通知・広告バー ========== -->
+  <div class="bottom-bar" id="bottomBar">
+    <div class="bottom-bar-notice" id="bottomNotice">
+      <span id="bottomNoticeText">ようこそ！ ☰メニューからバックアップ設定ができます</span>
+    </div>
+    <div class="bottom-bar-ad" id="bottomAd">
+      <!-- 広告スペース -->
+    </div>
+  </div>
+
+  <!-- ========== 共通モーダル（全タブ共通） ========== -->
+  
+  <!-- デザイン設定モーダル -->
+  <div class="modal-overlay" id="designModal">
+    <div class="modal">
+      <div class="modal-header">デザイン変更</div>
+      <div class="modal-body">
+        <div class="design-section">
+          <label>テーマ</label>
+          <div class="theme-options" id="themeOptions"></div>
+        </div>
+
+        <div class="design-section">
+          <label>文字サイズ</label>
+          <div class="size-options">
+            <div class="size-option" data-size="small" onclick="selectSize(this)">小</div>
+            <div class="size-option" data-size="medium" onclick="selectSize(this)">中</div>
+            <div class="size-option" data-size="large" onclick="selectSize(this)">大</div>
+          </div>
+        </div>
+
+        <div class="design-section">
+          <label>行の高さ</label>
+          <div class="size-options">
+            <div class="size-option" data-height="compact" onclick="selectHeight(this)">狭い</div>
+            <div class="size-option" data-height="normal" onclick="selectHeight(this)">普通</div>
+            <div class="size-option" data-height="relaxed" onclick="selectHeight(this)">広い</div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="modal-btn cancel" onclick="closeDesignModal()">キャンセル</button>
+        <button class="modal-btn primary" onclick="saveDesign()">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- お問い合わせモーダル -->
+  <div class="modal-overlay" id="contactModal">
+    <div class="modal">
+      <div class="modal-header">お問い合わせ</div>
+      <div class="modal-body">
+        <div class="contact-options">
+          <a class="contact-btn" id="contactEmail" href="#">
+            <span class="icon">✉️</span>
+            <span>メールで連絡</span>
+          </a>
+          <a class="contact-btn" id="contactForm" href="#" target="_blank">
+            <span class="icon">📝</span>
+            <span>フォームで連絡</span>
+          </a>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="modal-btn cancel" onclick="closeContactModal()">閉じる</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PRO版モーダル（未認証時） -->
+  <div class="modal-overlay" id="proModal">
+    <div class="modal">
+      <div class="modal-header">✨ 支援のお願い</div>
+      <div class="modal-body">
+        <p style="font-size: 14px; color: #333; line-height: 1.8; text-align: center; margin-bottom: 20px;">
+          継続した開発のため<br>気に入りましたらPRO版の<br>ご購入をお願いします。
+        </p>
+        <p style="font-size: 13px; color: #888; text-align: center; margin-bottom: 20px;">
+          ※機能的な変更はありません
+        </p>
+        <div style="text-align: center;">
+          <a href="https://play.google.com/store/apps/details?id=com.kusenokimera.hkkey" target="_blank" class="pro-purchase-btn">
+            買い切り 300円
+          </a>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="modal-btn cancel" onclick="closeProModal()">閉じる</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 支援済みモーダル -->
+  <div class="modal-overlay" id="proThanksModal">
+    <div class="modal">
+      <div class="modal-header">🎉 ご支援ありがとうございます</div>
+      <div class="modal-body" style="text-align: center;">
+        <div style="font-size: 48px; margin-bottom: 16px;">💖</div>
+        <p style="font-size: 14px; color: #666; line-height: 1.8;">
+          今後もより良いアプリを目指して<br>開発を続けてまいります。
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button class="modal-btn primary" onclick="closeProThanksModal()">閉じる</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- オプションメニュー（スライド式・全タブ共通） -->
+  <div class="options-menu" id="optionsMenu">
+    <div class="options-menu-header" onclick="toggleOptionsMenu()" style="cursor: pointer;">
+      <h2>メニュー</h2>
+      <span style="font-size: 11px; opacity: 0.7; margin-top: 2px;" id="menuVersionDisplay"></span>
+    </div>
+    <!-- 認証セクション -->
+    <div class="menu-auth-section not-logged-in" id="menuAuthSection">
+      <div class="menu-auth-status"><span>⚠️</span><span id="menuAuthStatusText">バックアップ未設定</span></div>
+      <div class="menu-auth-email" id="menuAuthEmail" style="display:none;"></div>
+      <div class="menu-pro-badge" id="menuProBadge" style="display:none; font-size: 12px; color: #f39c12; margin-bottom: 8px;">🎉 支援済み</div>
+      <button class="menu-auth-btn google" id="menuAuthButton" onclick="FirebaseSync.toggleAuth()">
+        <svg width="16" height="16" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+        Googleでログイン
+      </button>
+      <div class="menu-sync-status" id="menuSyncStatus"></div>
+    </div>
+    <div class="options-menu-list">
+      <!-- 共通メニュー -->
+      <div class="menu-section-label">共通</div>
+      <button onclick="openDesignModal(); toggleOptionsMenu();"><span class="icon">🎨</span>デザイン変更</button>
+      <button onclick="openContactModal(); toggleOptionsMenu();"><span class="icon">✉️</span>お問い合わせ</button>
+      <button id="proMenuItem" onclick="openProModal(); toggleOptionsMenu();"><span class="icon">✨</span>支援</button>
+      
+      <!-- シフト専用メニュー -->
+      <div class="menu-section-label menu-shift-only">📅 シフト</div>
+      <button class="menu-shift-only" onclick="openStatusColorModal(); toggleOptionsMenu();"><span class="icon">🎯</span>ステータス色設定</button>
+      <button class="menu-shift-only" onclick="triggerImport(); toggleOptionsMenu();"><span class="icon">📁</span>インポート</button>
+      <button class="menu-shift-only" onclick="exportData(); toggleOptionsMenu();"><span class="icon">📤</span>エクスポート</button>
+      <button class="menu-shift-only" onclick="updateHolidays(); toggleOptionsMenu();"><span class="icon">🔄</span>祝日を更新</button>
+      
+      <!-- 家計簿専用メニュー -->
+      <div class="menu-section-label menu-kakeibo-only">💰 家計簿</div>
+      <button class="menu-kakeibo-only" onclick="document.getElementById('kakeiboImportFile').click(); toggleOptionsMenu();"><span class="icon">📁</span>インポート</button>
+      <button class="menu-kakeibo-only" onclick="Kakeibo.exportData(); toggleOptionsMenu();"><span class="icon">📤</span>エクスポート</button>
+      <button class="menu-kakeibo-only" onclick="Kakeibo.toggleHistory(); toggleOptionsMenu();"><span class="icon">📜</span>履歴</button>
+      
+      <!-- メモ専用メニュー -->
+      <div class="menu-section-label menu-memo-only">📝 メモ</div>
+      <button class="menu-memo-only" onclick="document.getElementById('memoImportFile').click(); toggleOptionsMenu();"><span class="icon">📁</span>インポート</button>
+      <button class="menu-memo-only" onclick="Memo.exportData(); toggleOptionsMenu();"><span class="icon">📤</span>エクスポート</button>
+      <button class="menu-memo-only" onclick="Memo.toggleHistory(); toggleOptionsMenu();"><span class="icon">📜</span>履歴</button>
+    </div>
+  </div>
 </body>
 </html>
