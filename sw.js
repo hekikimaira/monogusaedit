@@ -4,8 +4,8 @@ const CACHE_FILES = [
   './',
   './index.html',
   './manifest.json',
-  './icon192.png',
-  './icon512.png'
+  './icon192.webp',
+  './icon512.webp'
 ];
 
 // インストール時：ファイルをキャッシュ

@@ -2,6 +2,7 @@
   "name": "ものぐさ手帳",
   "short_name": "ものぐさ",
   "description": "シフト管理・家計簿・メモが一つに。シンプルで使いやすい手帳アプリ。",
+  "id": "/monogusaedit/",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#f0f0f0",
@@ -9,15 +10,15 @@
   "orientation": "portrait",
   "icons": [
     {
-      "src": "icon192.png",
+      "src": "icon192.webp",
       "sizes": "192x192",
-      "type": "image/png",
+      "type": "image/webp",
       "purpose": "any maskable"
     },
     {
-      "src": "icon512.png",
+      "src": "icon512.webp",
       "sizes": "512x512",
-      "type": "image/png",
+      "type": "image/webp",
       "purpose": "any maskable"
     }
   ]
