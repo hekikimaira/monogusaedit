@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "com.hekikimaira.monogusa",
+        "sha256_cert_fingerprints": ["0A:16:35:12:E3:FC:73:03:27:D0:40:41:0A:14:E7:4C:8C:C6:B4:75:1F:03:ED:31:FF:FB:F7:35:D6:DB:DA:14"]
+      }
+    }]
