@@ -127,6 +127,40 @@
     }
     .history-btn span:not(:empty) { display: flex; }
 
+    /* Todoショートカットボタン（ヘッダー） */
+    .todo-shortcut-btn {
+      background: rgba(255,255,255,0.2) !important;
+      color: #fff;
+      border: none;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .todo-shortcut-btn:hover {
+      background: rgba(255,255,255,0.3) !important;
+    }
+
+    /* Todoボタン（メモタブ内） */
+    .memo-todo-btn {
+      padding: 4px 10px;
+      border: 1px solid #f59e0b;
+      background: #fffbeb;
+      color: #b45309;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-left: 4px;
+    }
+    .memo-todo-btn:hover {
+      background: #fef3c7;
+    }
+
     /* シフト履歴オーバーレイ */
     .shift-history-overlay {
       position: fixed;
@@ -820,11 +854,6 @@
     }
 
     /* 設定ページ */
-    .settings-page {
-      background: #fff;
-      min-height: 100vh;
-    }
-
     .settings-header {
       background: linear-gradient(135deg, #8e44ad, #9b59b6);
       color: #fff;
@@ -882,19 +911,6 @@
       font-size: 18px;
       font-weight: bold;
       color: #333;
-    }
-
-    .pattern-badge {
-      background: #27ae60;
-      color: #fff;
-      padding: 4px 12px;
-      border-radius: 12px;
-      font-size: 12px;
-      display: none;
-    }
-
-    .pattern-card.selected .pattern-badge {
-      display: inline-block;
     }
 
     .pattern-card-body {
@@ -994,34 +1010,6 @@
     /* ファイル入力を隠す */
     #importInput {
       display: none;
-    }
-
-    /* PRO版特典リスト */
-    .pro-benefits {
-      background: linear-gradient(135deg, #fff9e6, #fff3cd);
-      border-radius: 8px;
-      padding: 16px;
-    }
-
-    .pro-benefit-item {
-      padding: 8px 0;
-      font-size: 15px;
-    }
-
-    .pro-benefit-item + .pro-benefit-item {
-      border-top: 1px dashed #e0d5b0;
-    }
-
-    .pro-code-box {
-      background: #f5f5f5;
-      border: 1px solid #ddd;
-      border-radius: 8px;
-      padding: 12px;
-      font-family: monospace;
-      font-size: 12px;
-      word-break: break-all;
-      text-align: center;
-      color: #333;
     }
 
     .pro-purchase-btn {
@@ -1460,12 +1448,6 @@
     .memo-save-status { font-size: 12px; color: var(--sub-text, #888); }
     .memo-save-status.saving { color: #d97706; }
     .memo-save-status.saved { color: #22c55e; }
-    
-    /* メモヘルプセクション */
-    .memo-help-section { border-top: 1px solid color-mix(in srgb, var(--text-color, #333) 20%, transparent); margin-top: 15px; padding-top: 12px; font-size: 12px; color: var(--sub-text, #666); }
-    .memo-help-section h4 { margin-bottom: 6px; font-size: 13px; color: var(--text-color, #333); }
-    .memo-help-section ul { margin-left: 20px; line-height: 1.8; }
-    .memo-help-section a { color: var(--primary-color, #2196F3); }
   </style>
 </head>
 <body class="current-tab-shift">
@@ -1510,6 +1492,7 @@
       <button onclick="changeYear(1)">▶</button>
       <button class="edit-mode-btn" id="editModeBtn" onclick="toggleEditMode()">シフト</button>
       <button class="history-btn" onclick="ShiftHistory.toggle()">📜<span id="shiftHistoryCount"></span></button>
+      <button class="todo-shortcut-btn" onclick="openTodo()">T</button>
     </div>
 
     <!-- シフト履歴オーバーレイ -->
@@ -1775,7 +1758,7 @@
         }));
         return data;
       } catch (e) {
-        console.log('API取得失敗、キャッシュまたは計算式を使用');
+        addDebugLog('API取得失敗、キャッシュまたは計算式を使用');
         return null;
       }
     }
@@ -1857,13 +1840,18 @@
     async function updateHolidays() {
       closeOptionsMenu();
       showToast('祝日を更新中...');
-      const data = await fetchHolidaysFromAPI();
-      if (data) {
-        holidays = getHolidays(currentYear);
-        renderSchedule();
-        showToast('祝日を更新しました！');
-      } else {
-        showToast('更新失敗（オフライン？）');
+      try {
+        const data = await fetchHolidaysFromAPI();
+        if (data) {
+          holidays = getHolidays(currentYear);
+          renderSchedule();
+          showToast('祝日を更新しました！');
+        } else {
+          showToast('更新失敗（オフライン？）');
+        }
+      } catch (e) {
+        addDebugLog('祝日更新エラー: ' + e.message);
+        showToast('更新失敗');
       }
     }
 
@@ -1885,6 +1873,13 @@
     let selectedStartPosition = 0;
     let pendingShiftStart = null;
     const MAX_PATTERN_ITEMS = 90;
+
+    // タイムアウト定数（ms）
+    const DEBOUNCE_HISTORY_MS = 1000;    // 入力→履歴保存
+    const TOAST_DURATION_MS = 2000;      // トースト表示時間
+    const SYNC_DELAY_MS = 5000;          // Firebase同期遅延
+    const SYNC_RESTORE_DELAY_MS = 2000;  // 復元後同期
+    const SYNC_SAVE_DELAY_MS = 3000;     // 保存後同期
 
     // PRO版関連
     let isPro = false;
@@ -2134,7 +2129,7 @@
       },
       scheduleBackup() {
         clearTimeout(this.saveTimeout);
-        this.saveTimeout = setTimeout(() => this.addHistory('input'), 1000);
+        this.saveTimeout = setTimeout(() => this.addHistory('input'), DEBOUNCE_HISTORY_MS);
       },
       toggle() {
         this.visible = !this.visible;
@@ -2591,7 +2586,8 @@
 
     // 予定欄入力時のPROコードチェック
     async function checkProCode(key, value) {
-      if (value === PRO_CODE) {
+      try {
+        if (value === PRO_CODE) {
         // 入力をクリア
         setTimeout(() => {
           if (memoData[key]) {
@@ -2622,12 +2618,17 @@
           }
         }
         return true;
+        }
+        return false;
+      } catch (e) {
+        addDebugLog('PRO認証エラー: ' + e.message);
+        return false;
       }
-      return false;
     }
 
     // 起動時にPRO状態を再確認
     async function recheckProStatus() {
+      try {
       // Firebase連携中はクラウドのPRO状態を優先
       if (FirebaseSync.user) {
         addDebugLog('PRO状態はFirebaseから取得済み');
@@ -2640,6 +2641,9 @@
         isPro = true;
         updateProUI();
         addDebugLog('PRO状態をローカルから復元');
+      }
+      } catch (e) {
+        addDebugLog('PRO再確認エラー: ' + e.message);
       }
     }
 
@@ -2745,6 +2749,7 @@
     }
 
     async function generateSupportInfo() {
+      try {
       const info = [];
       const now = new Date();
       
@@ -2836,18 +2841,21 @@
       }
       
       document.getElementById('supportInfoText').value = info.join('\n');
+      } catch (e) {
+        document.getElementById('supportInfoText').value = 'サポート情報の生成に失敗しました: ' + e.message;
+      }
     }
 
-    function copySupportInfo() {
+    async function copySupportInfo() {
       const text = document.getElementById('supportInfoText').value;
-      navigator.clipboard.writeText(text).then(() => {
+      try {
+        await navigator.clipboard.writeText(text);
         alert('コピーしました！\nサポートに貼り付けてお送りください。');
-      }).catch(() => {
-        // フォールバック
+      } catch {
         document.getElementById('supportInfoText').select();
         document.execCommand('copy');
         alert('コピーしました！');
-      });
+      }
     }
 
     function shareSupportInfo() {
@@ -2926,7 +2934,11 @@
         return;
       }
       addDebugLog('強制同期開始...');
-      await FirebaseSync.backupToCloud();
+      try {
+        await FirebaseSync.backupToCloud();
+      } catch (e) {
+        addDebugLog('強制同期エラー: ' + e.message);
+      }
       updateDebugDisplay();
     }
 
@@ -3064,11 +3076,14 @@ PRO状態: ${data.isPro ? '✅' : '❌'}
       }
     }
 
-    function copyDebugLog() {
+    async function copyDebugLog() {
       const logOutput = document.getElementById('debugLogOutput');
-      navigator.clipboard.writeText(logOutput.value).then(() => {
+      try {
+        await navigator.clipboard.writeText(logOutput.value);
         showToast('ログをコピーしました');
-      });
+      } catch {
+        showToast('コピーに失敗しました');
+      }
     }
 
     // Service Workerキャッシュ削除
@@ -3124,7 +3139,7 @@ PRO状態: ${data.isPro ? '✅' : '❌'}
       toast.classList.remove('show');
       void toast.offsetWidth; // reflow
       toast.classList.add('show');
-      setTimeout(() => toast.classList.remove('show'), 2000);
+      setTimeout(() => toast.classList.remove('show'), TOAST_DURATION_MS);
     }
 
     // ========== メニュー ==========
@@ -3319,42 +3334,48 @@ PRO状態: ${data.isPro ? '✅' : '❌'}
         return;
       }
       
-      // 挿入前の状態を保存
-      await ShiftHistory.addHistory('input');
+      try {
+        // 挿入前の状態を保存
+        await ShiftHistory.addHistory('input');
 
-      const [year, month, day] = pendingShiftStart.split('-').map(Number);
-      const pattern = shiftPatterns[selectedPatternIndex];
-      let totalDays = pattern.length * selectedRepeatCount;
-      
-      // 365日で打ち切り
-      if (totalDays > 365) {
-        totalDays = 365;
-        showToast('⚠️ 365日を超えるため打ち切りました');
-      }
-
-      let currentDate = new Date(year, month - 1, day);
-      let patternIndex = selectedStartPosition;
-      
-      for (let i = 0; i < totalDays; i++) {
-        const y = currentDate.getFullYear();
-        const m = currentDate.getMonth() + 1;
-        const d = currentDate.getDate();
-        const key = `${y}-${m}-${d}`;
-
-        if (!memoData[key]) {
-          memoData[key] = [];
+        const [year, month, day] = pendingShiftStart.split('-').map(Number);
+        const pattern = shiftPatterns[selectedPatternIndex];
+        let totalDays = pattern.length * selectedRepeatCount;
+        
+        // 365日で打ち切り
+        if (totalDays > 365) {
+          totalDays = 365;
+          showToast('⚠️ 365日を超えるため打ち切りました');
         }
-        memoData[key][0] = pattern[patternIndex % pattern.length];
 
-        patternIndex++;
-        currentDate.setDate(currentDate.getDate() + 1);
+        let currentDate = new Date(year, month - 1, day);
+        let patternIndex = selectedStartPosition;
+        
+        for (let i = 0; i < totalDays; i++) {
+          const y = currentDate.getFullYear();
+          const m = currentDate.getMonth() + 1;
+          const d = currentDate.getDate();
+          const key = `${y}-${m}-${d}`;
+
+          if (!memoData[key]) {
+            memoData[key] = [];
+          }
+          memoData[key][0] = pattern[patternIndex % pattern.length];
+
+          patternIndex++;
+          currentDate.setDate(currentDate.getDate() + 1);
+        }
+
+        saveData(true);
+        ShiftHistory.addHistory('shift');
+        closeConfirmModal();
+        renderSchedule();
+        showToast(`${totalDays}日分のシフトを挿入しました`);
+      } catch (e) {
+        addDebugLog('シフト挿入エラー: ' + e.message);
+        showToast('シフト挿入に失敗しました');
+        closeConfirmModal();
       }
-
-      saveData(true); // 通常の履歴スケジュールはスキップ
-      ShiftHistory.addHistory('shift'); // シフト挿入として即座に履歴保存
-      closeConfirmModal();
-      renderSchedule();
-      showToast(`${totalDays}日分のシフトを挿入しました`);
     }
 
     function onFirstMemoClick(key, event) {
@@ -3431,16 +3452,17 @@ PRO状態: ${data.isPro ? '✅' : '❌'}
       renderSchedule();
     }
 
-    function copyMemo() {
+    async function copyMemo() {
       if (!activeMenuTarget) return;
       const { key, index } = activeMenuTarget;
       const text = memoData[key]?.[index] || '';
       if (text) {
-        navigator.clipboard.writeText(text).then(() => {
+        try {
+          await navigator.clipboard.writeText(text);
           showToast('コピーしました');
-        }).catch(() => {
+        } catch {
           showToast('コピーに失敗しました');
-        });
+        }
       } else {
         showToast('コピーする内容がありません');
       }
@@ -3565,29 +3587,32 @@ PRO状態: ${data.isPro ? '✅' : '❌'}
 
     // 初期化（非同期）
     async function init() {
-      await loadData();
-      await ShiftHistory.load();
-      document.getElementById('yearDisplay').textContent = currentYear + '年';
-      
-      // Service Worker登録
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('./sw.js')
-          .then((reg) => {
+      try {
+        await loadData();
+        await ShiftHistory.load();
+        document.getElementById('yearDisplay').textContent = currentYear + '年';
+        
+        // Service Worker登録
+        if ('serviceWorker' in navigator) {
+          try {
+            await navigator.serviceWorker.register('./sw.js');
             addDebugLog('Service Worker登録成功');
-          })
-          .catch((err) => {
+          } catch (err) {
             addDebugLog('Service Worker登録失敗: ' + err.message);
-          });
+          }
+        }
+        
+        // 起動時にAPIから祝日を取得（オンラインなら）
+        await fetchHolidaysFromAPI();
+        holidays = getHolidays(currentYear);
+        renderSchedule();
+        restoreScroll();
+        
+        // PRO状態を再確認（オンラインなら）
+        recheckProStatus();
+      } catch (e) {
+        addDebugLog('init失敗: ' + e.message);
       }
-      
-      // 起動時にAPIから祝日を取得（オンラインなら）
-      await fetchHolidaysFromAPI();
-      holidays = getHolidays(currentYear);
-      renderSchedule();
-      restoreScroll();
-      
-      // PRO状態を再確認（オンラインなら）
-      recheckProStatus();
     }
     
     init();
@@ -3703,6 +3728,7 @@ PRO状態: ${data.isPro ? '✅' : '❌'}
           <button class="memo-color-btn memo-color-blue" onclick="Memo.setColor('#2563eb')">青</button>
           <button class="memo-color-btn memo-color-green" onclick="Memo.setColor('#16a34a')">緑</button>
           <button class="memo-color-btn memo-color-black active" onclick="Memo.setColor(null)">黒</button>
+          <button class="memo-todo-btn" onclick="openTodo()">Todo</button>
           <button class="memo-btn memo-btn-clear" onclick="Memo.clearMemo()">クリア</button>
           <span class="memo-save-status" id="memoSaveStatus"></span>
         </div>
@@ -3818,7 +3844,7 @@ PRO状態: ${data.isPro ? '✅' : '❌'}
         this.saveCurrentData();
         // debounce: 1秒後にバックアップ
         clearTimeout(this.saveTimeout);
-        this.saveTimeout = setTimeout(() => this.addHistory('input'), 1000);
+        this.saveTimeout = setTimeout(() => this.addHistory('input'), DEBOUNCE_HISTORY_MS);
       },
       onPaste(e) {
         // ペースト時は即座にバックアップ予約（入力イベントの後に発火）
@@ -3963,11 +3989,17 @@ PRO状態: ${data.isPro ? '✅' : '❌'}
           await this.addHistory('paste');
         }
       },
-      copyTemplate() {
-        navigator.clipboard.writeText(document.getElementById('kakeiboTemplateArea').value).then(() => alert('コピーしました'));
+      async copyTemplate() {
+        try {
+          await navigator.clipboard.writeText(document.getElementById('kakeiboTemplateArea').value);
+          alert('コピーしました');
+        } catch { /* ignore */ }
       },
-      copyBalance() {
-        navigator.clipboard.writeText(document.getElementById('kakeiboBalanceAmount').textContent).then(() => alert('コピーしました'));
+      async copyBalance() {
+        try {
+          await navigator.clipboard.writeText(document.getElementById('kakeiboBalanceAmount').textContent);
+          alert('コピーしました');
+        } catch { /* ignore */ }
       },
       
       // ========== インポート/エクスポート ==========
@@ -4201,7 +4233,7 @@ PRO状態: ${data.isPro ? '✅' : '❌'}
       showSaved() {
         this.saveStatus.textContent = '保存済み';
         this.saveStatus.className = 'memo-save-status saved';
-        setTimeout(() => { this.saveStatus.textContent = ''; }, 2000);
+        setTimeout(() => { this.saveStatus.textContent = ''; }, TOAST_DURATION_MS);
       },
       
       // ========== データ保存・読込 ==========
@@ -4465,6 +4497,50 @@ PRO状態: ${data.isPro ? '✅' : '❌'}
       }
     };
 
+    // ========== Todoショートカット ==========
+    const TODO_MEMO_NAME = 'todo';
+
+    async function openTodo() {
+      try {
+        // メモタブに切り替え
+        switchMainTab('memo');
+
+        // 現在のメモを保存
+        if (Memo.currentKey) {
+          await Memo.saveCurrentData();
+        }
+
+        // todoメモを探す
+        const list = await Memo.getDataList();
+        let todoItem = list.find(i => i.name === TODO_MEMO_NAME);
+
+        // なければ自動作成
+        if (!todoItem) {
+          const key = 'm_todo_' + Date.now();
+          todoItem = { key, name: TODO_MEMO_NAME };
+          list.push(todoItem);
+          await Memo.saveDataList(list);
+          await Memo.updateListSelect();
+          addDebugLog('todoメモを自動作成');
+        }
+
+        // todoメモを開く
+        const data = await Memo.loadDataByKey(todoItem.key);
+        Memo.editor.innerHTML = data || '';
+        Memo.currentKey = todoItem.key;
+        document.getElementById('memoNameInput').value = todoItem.name;
+        document.getElementById('memoListSelect').value = todoItem.key;
+        Memo.updatePlaceholder();
+        await Memo.saveLastEdited();
+
+        // エディタにフォーカス
+        Memo.editor.focus();
+      } catch (e) {
+        addDebugLog('Todo展開エラー: ' + e.message);
+        showToast('Todoを開けませんでした');
+      }
+    }
+
     // ========== バージョン管理 ==========
     async function checkAndMigrateVersion() {
       try {
@@ -4493,32 +4569,20 @@ PRO状態: ${data.isPro ? '✅' : '❌'}
     }
     
     async function migrateData(fromVersion, toVersion) {
-      // バージョン番号を数値配列に変換 (例: "1.0.0" → [1, 0, 0])
-      const parseVersion = (v) => v.split('.').map(Number);
-      const from = parseVersion(fromVersion);
-      const to = parseVersion(toVersion);
-      
-      addDebugLog(`マイグレーション開始: ${fromVersion} → ${toVersion}`);
-      
-      // 各バージョンのマイグレーション処理
-      // 将来のアップデート時にここに追加していく
-      
-      /*
-      // 例: 1.0.0 → 1.1.0 のマイグレーション
-      if (compareVersion(from, [1, 0, 0]) <= 0 && compareVersion(to, [1, 1, 0]) >= 0) {
-        // 1.1.0 で追加された新しいデータ構造への変換
-        addDebugLog('1.1.0 マイグレーション実行');
-        // ... 具体的な処理 ...
+      try {
+        const parseVersion = (v) => v.split('.').map(Number);
+        const from = parseVersion(fromVersion);
+        const to = parseVersion(toVersion);
+        
+        addDebugLog(`マイグレーション開始: ${fromVersion} → ${toVersion}`);
+        
+        // 各バージョンのマイグレーション処理
+        // 将来のアップデート時にここに追加していく
+        
+        addDebugLog('マイグレーション完了');
+      } catch (e) {
+        addDebugLog('マイグレーションエラー: ' + e.message);
       }
-      
-      // 例: 1.1.0 → 1.2.0 のマイグレーション
-      if (compareVersion(from, [1, 1, 0]) <= 0 && compareVersion(to, [1, 2, 0]) >= 0) {
-        addDebugLog('1.2.0 マイグレーション実行');
-        // ... 具体的な処理 ...
-      }
-      */
-      
-      addDebugLog('マイグレーション完了');
     }
     
     // バージョン比較 (a < b: -1, a == b: 0, a > b: 1)
@@ -4681,7 +4745,7 @@ PRO状態: ${data.isPro ? '✅' : '❌'}
       scheduleBackup() {
         if (!this.user) return;
         clearTimeout(this.syncTimeout);
-        this.syncTimeout = setTimeout(() => this.backupToCloud(), 5000);
+        this.syncTimeout = setTimeout(() => this.backupToCloud(), SYNC_DELAY_MS);
       },
       
       // クラウドにバックアップ実行
@@ -4775,7 +4839,7 @@ PRO状態: ${data.isPro ? '✅' : '❌'}
           if (!cloudData) {
             this.setSyncStatus('新規ユーザー（初回バックアップ待機）');
             // 初回は現在のローカルデータをバックアップ
-            setTimeout(() => this.backupToCloud(), 2000);
+            setTimeout(() => this.backupToCloud(), SYNC_RESTORE_DELAY_MS);
             return;
           }
           
@@ -4807,7 +4871,7 @@ PRO状態: ${data.isPro ? '✅' : '❌'}
             } else {
               this.setSyncStatus('ローカルデータを維持');
               // ローカルを優先した場合、後でバックアップ
-              setTimeout(() => this.backupToCloud(), 3000);
+              setTimeout(() => this.backupToCloud(), SYNC_SAVE_DELAY_MS);
             }
           } else {
             this.setSyncStatus('✓ 同期済み');
