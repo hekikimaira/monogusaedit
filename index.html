@@ -19,10 +19,7 @@
   <meta property="og:description" content="シンプルで使いやすい縦型シフトカレンダー">
   <meta property="og:type" content="website">
   
-  <!-- Firebase SDK -->
-  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <!-- Firebase SDK 無効化済み -->
   
   <style>
     * {
@@ -1012,24 +1009,6 @@
       display: none;
     }
 
-    .pro-purchase-btn {
-      display: block;
-      width: 100%;
-      padding: 14px;
-      background: linear-gradient(135deg, #34a853, #0f9d58);
-      color: #fff;
-      text-align: center;
-      text-decoration: none;
-      border-radius: 8px;
-      font-size: 16px;
-      font-weight: bold;
-      box-shadow: 0 2px 8px rgba(15, 157, 88, 0.3);
-    }
-
-    .pro-purchase-btn:hover {
-      filter: brightness(1.05);
-    }
-
     /* インポートモード選択 */
     .import-mode-options {
       display: flex;
@@ -1310,63 +1289,6 @@
       padding-bottom: 90px;
     }
 
-    /* ========== メニュー内認証セクション ========== */
-    .menu-auth-section {
-      padding: 16px;
-      background: #f5f5f5;
-      border-bottom: 1px solid #ddd;
-    }
-    .menu-auth-section.logged-in {
-      background: linear-gradient(135deg, #e8f5e9, #c8e6c9);
-    }
-    .menu-auth-section.not-logged-in {
-      background: linear-gradient(135deg, #fff3e0, #ffe0b2);
-    }
-    .menu-auth-status {
-      font-size: 12px;
-      color: #666;
-      margin-bottom: 8px;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-    .menu-auth-email {
-      font-size: 13px;
-      font-weight: 500;
-      color: #333;
-      margin-bottom: 8px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-    .menu-auth-btn {
-      width: 100%;
-      padding: 10px 16px;
-      border: none;
-      border-radius: 6px;
-      font-size: 13px;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-    }
-    .menu-auth-btn.google {
-      background: #fff;
-      color: #333;
-      border: 1px solid #ddd;
-    }
-    .menu-auth-btn.logout {
-      background: #e74c3c;
-      color: #fff;
-    }
-    .menu-sync-status {
-      font-size: 11px;
-      color: #888;
-      margin-top: 8px;
-      text-align: center;
-    }
-
     /* ========== メモスタイル（新） ========== */
     .memo-app-new { background: var(--bg-color, #f5f5f5); padding: 10px; min-height: calc(100vh - 85px); }
     .memo-container-new { max-width: 700px; margin: 0 auto; background: var(--card-bg, white); border: 1px solid color-mix(in srgb, var(--text-color, #333) 15%, transparent); padding: 15px; border-radius: 8px; }
@@ -1473,9 +1395,6 @@
     
     // PRO認証API（Google Apps ScriptのデプロイURL）
     const PRO_API_URL = '';  // GASデプロイ後に設定
-    
-    // PRO認証コード（予定欄に入力）
-    const PRO_CODE = 'pro32756591473826593614723936';
     
     // デバッグモード起動コード（予定欄に入力）
     const DEBUG_CODE = 'annko626206238506900';
@@ -1881,8 +1800,8 @@
     const SYNC_RESTORE_DELAY_MS = 2000;  // 復元後同期
     const SYNC_SAVE_DELAY_MS = 3000;     // 保存後同期
 
-    // PRO版関連
-    let isPro = false;
+    // PRO版関連（全ユーザーPRO扱い）
+    const isPro = true;
 
     // デバッグログ
     let debugLog = [];
@@ -2056,21 +1975,15 @@
           currentYear = data.lastYear || new Date().getFullYear();
           shiftPatterns = data.shiftPatterns || shiftPatterns;
           designSettings = data.designSettings || designSettings;
-          isPro = data.isPro || false;
           statusColorSettings = data.statusColorSettings || statusColorSettings;
           dayStatusColors = data.dayStatusColors || {};
         }
-        
-        // PRO状態はLocalStorageにも保持（他アプリと共有用）
-        const proCode = localStorage.getItem('ntrr_pro_code');
-        if (proCode) isPro = true;
         
       } catch (e) {
         addDebugLog('データ読み込みエラー: ' + e.message);
       }
       
       applyDesign();
-      updateProUI();
       addDebugLog('データ読み込み完了');
     }
 
@@ -2196,7 +2109,6 @@
           lastScroll: window.scrollY,
           shiftPatterns: shiftPatterns,
           designSettings: designSettings,
-          isPro: isPro,
           statusColorSettings: statusColorSettings,
           dayStatusColors: dayStatusColors
         });
@@ -2557,95 +2469,13 @@
       showToast('ステータス色設定を保存しました');
     }
 
-    // ========== PRO版 ==========
-    function updateProUI() {
-      const menuItem = document.getElementById('proMenuItem');
-      if (isPro) {
-        menuItem.innerHTML = '<span class="icon">🎉</span>支援済み';
-      } else {
-        menuItem.innerHTML = '<span class="icon">✨</span>支援';
-      }
-    }
-
-    function openProModal() {
-      closeOptionsMenu();
-      if (isPro) {
-        document.getElementById('proThanksModal').classList.add('show');
-      } else {
-        document.getElementById('proModal').classList.add('show');
-      }
-    }
-
-    function closeProModal() {
-      document.getElementById('proModal').classList.remove('show');
-    }
-
-    function closeProThanksModal() {
-      document.getElementById('proThanksModal').classList.remove('show');
-    }
-
-    // 予定欄入力時のPROコードチェック
-    async function checkProCode(key, value) {
-      try {
-        if (value === PRO_CODE) {
-        // 入力をクリア
-        setTimeout(() => {
-          if (memoData[key]) {
-            const idx = memoData[key].indexOf(PRO_CODE);
-            if (idx >= 0) {
-              memoData[key][idx] = '';
-              saveData();
-              renderSchedule();
-            }
-          }
-        }, 100);
-
-        // PRO有効化
-        isPro = true;
-        localStorage.setItem('ntrr_pro_code', value);
-        saveData();
-        updateProUI();
-        showToast('🎉 ありがとうございます！');
-        addDebugLog('PRO版認証成功');
-        
-        // Firebase連携中ならクラウドにもPRO状態を保存
-        if (FirebaseSync.user) {
-          try {
-            await FirebaseSync.setProStatus(true);
-            addDebugLog('PRO状態をクラウドに保存');
-          } catch (e) {
-            addDebugLog('PRO状態のクラウド保存失敗: ' + e.message);
-          }
-        }
-        return true;
-        }
-        return false;
-      } catch (e) {
-        addDebugLog('PRO認証エラー: ' + e.message);
-        return false;
-      }
-    }
-
-    // 起動時にPRO状態を再確認
-    async function recheckProStatus() {
-      try {
-      // Firebase連携中はクラウドのPRO状態を優先
-      if (FirebaseSync.user) {
-        addDebugLog('PRO状態はFirebaseから取得済み');
-        return;
-      }
-      
-      // オフライン時はローカルのコードを確認
-      const savedCode = localStorage.getItem('ntrr_pro_code');
-      if (savedCode === PRO_CODE) {
-        isPro = true;
-        updateProUI();
-        addDebugLog('PRO状態をローカルから復元');
-      }
-      } catch (e) {
-        addDebugLog('PRO再確認エラー: ' + e.message);
-      }
-    }
+    // ========== PRO版（無効化済み・全機能開放） ==========
+    function updateProUI() {}
+    function openProModal() {}
+    function closeProModal() {}
+    function closeProThanksModal() {}
+    async function checkProCode() { return false; }
+    async function recheckProStatus() {}
 
     // ========== デバッグモード ==========
     const ERROR_KEYWORDS = ['失敗', 'エラー', 'Error', 'error', 'failed', 'Failed'];
@@ -3025,28 +2855,9 @@ PRO状態: ${data.isPro ? '✅' : '❌'}
       }
     }
 
-    // デバッグ用：PRO状態完全リセット
+    // デバッグ用：PRO状態完全リセット（無効化済み）
     async function debugResetPro() {
-      if (confirm('PRO状態を完全にリセットしますか？\n（ローカル・クラウド両方）')) {
-        isPro = false;
-        localStorage.removeItem('ntrr_pro_code');
-        saveData();
-        updateProUI();
-        
-        if (FirebaseSync.user) {
-          try {
-            await FirebaseSync.setProStatus(false);
-            addDebugLog('PRO状態リセット（クラウド含む）');
-          } catch (e) {
-            addDebugLog('PRO状態リセット（ローカルのみ）');
-          }
-        } else {
-          addDebugLog('PRO状態リセット（ローカル）');
-        }
-        
-        updateDebugDisplay();
-        showToast('PRO状態をリセットしました');
-      }
+      showToast('PRO機能は全ユーザー開放済みです');
     }
 
     // デバッグ用：ログクリア
@@ -3057,23 +2868,7 @@ PRO状態: ${data.isPro ? '✅' : '❌'}
     }
 
     async function toggleProStatus(status) {
-      isPro = status;
-      saveData();
-      updateProUI();
-      updateDebugDisplay();
-      addDebugLog(`PRO版を${status ? 'ON' : 'OFF'}に変更`);
-      
-      // Firebase連携中ならクラウドにも保存
-      if (FirebaseSync.user) {
-        try {
-          await FirebaseSync.setProStatus(status);
-          showToast(`PRO版を${status ? '有効' : '無効'}にしました（クラウド同期済み）`);
-        } catch (e) {
-          showToast(`PRO版を${status ? '有効' : '無効'}にしました（ローカルのみ）`);
-        }
-      } else {
-        showToast(`PRO版を${status ? '有効' : '無効'}にしました`);
-      }
+      showToast('PRO機能は全ユーザー開放済みです');
     }
 
     async function copyDebugLog() {
@@ -3120,7 +2915,6 @@ PRO状態: ${data.isPro ? '✅' : '❌'}
             // LocalStorageも削除
             localStorage.removeItem('scheduleData_v5');
             localStorage.removeItem('holidaysCache');
-            localStorage.removeItem('ntrr_pro_code');
             addDebugLog('全データ削除完了');
             showToast('全データを削除しました。リロードします...');
             setTimeout(() => location.reload(), 1500);
@@ -4594,371 +4388,22 @@ PRO状態: ${data.isPro ? '✅' : '❌'}
       return 0;
     }
 
-    // ========== Firebase同期モジュール ==========
+    // ========== Firebase同期モジュール（無効化済み） ==========
     const FirebaseSync = {
       user: null,
       firestore: null,
       syncTimeout: null,
       lastSyncTime: null,
-      syncing: false,  // 同期中フラグ
-      restoring: false, // 復元中フラグ
-      
-      // リトライ付き実行（指数バックオフ、最大3回）
-      async withRetry(fn, maxRetries = 3) {
-        for (let i = 0; i < maxRetries; i++) {
-          try {
-            return await fn();
-          } catch (e) {
-            if (i === maxRetries - 1) throw e;
-            // 1秒 → 2秒 → 4秒 と待機
-            await new Promise(r => setTimeout(r, 1000 * Math.pow(2, i)));
-            addDebugLog(`リトライ ${i + 1}/${maxRetries - 1}...`);
-          }
-        }
-      },
-      
-      // Firebase設定
-      config: {
-        apiKey: "AIzaSyDBG_r1boPvLrl-wVSIIv-CgCUk0EJrqSw",
-        authDomain: "pmake-e037a.firebaseapp.com",
-        projectId: "pmake-e037a",
-        storageBucket: "pmake-e037a.firebasestorage.app",
-        messagingSenderId: "716873851866",
-        appId: "1:716873851866:web:4a892b109a83de3aec96e3"
-      },
-      
-      // 初期化
-      async init() {
-        try {
-          // Firebase初期化
-          if (!firebase.apps.length) {
-            firebase.initializeApp(this.config);
-          }
-          this.firestore = firebase.firestore();
-          
-          // 認証状態の監視
-          firebase.auth().onAuthStateChanged((user) => {
-            this.user = user;
-            this.updateAuthUI();
-            if (user) {
-              // ログイン時：クラウドからデータ復元を試みる
-              this.restoreFromCloud();
-            }
-          });
-          
-          addDebugLog('Firebase初期化成功');
-        } catch (e) {
-          addDebugLog('Firebase初期化失敗: ' + e.message);
-        }
-      },
-      
-      // 認証UI更新（メニュー内）
-      updateAuthUI() {
-        const section = document.getElementById('menuAuthSection');
-        const statusText = document.getElementById('menuAuthStatusText');
-        const emailEl = document.getElementById('menuAuthEmail');
-        const button = document.getElementById('menuAuthButton');
-        const proBadge = document.getElementById('menuProBadge');
-        const bottomNotice = document.getElementById('bottomNotice');
-        const bottomNoticeText = document.getElementById('bottomNoticeText');
-        
-        // PRO状態表示
-        if (proBadge) {
-          proBadge.style.display = isPro ? 'block' : 'none';
-        }
-        
-        if (this.user) {
-          section.classList.remove('not-logged-in');
-          section.classList.add('logged-in');
-          statusText.textContent = '✓ バックアップ有効';
-          emailEl.textContent = this.user.email || this.user.displayName || '';
-          emailEl.style.display = 'block';
-          button.innerHTML = 'ログアウト';
-          button.classList.remove('google');
-          button.classList.add('logout');
-          // 下部通知も更新
-          bottomNotice.classList.remove('warning');
-          bottomNotice.classList.add('success');
-          bottomNoticeText.textContent = isPro ? '🎉 支援済み ✓ クラウド同期中' : '✓ クラウドバックアップ有効';
-        } else {
-          section.classList.add('not-logged-in');
-          section.classList.remove('logged-in');
-          statusText.textContent = '⚠️ バックアップ未設定';
-          emailEl.style.display = 'none';
-          button.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg> Googleでログイン`;
-          button.classList.add('google');
-          button.classList.remove('logout');
-          // 下部通知も更新
-          bottomNotice.classList.add('warning');
-          bottomNotice.classList.remove('success');
-          bottomNoticeText.textContent = isPro ? '🎉 支援済み ☰でバックアップ設定を' : '⚠️ ☰メニューからバックアップ設定をおすすめします';
-        }
-      },
-      
-      // 同期ステータス表示
-      setSyncStatus(msg, isError = false) {
-        const el = document.getElementById('menuSyncStatus');
-        const bottomNoticeText = document.getElementById('bottomNoticeText');
-        if (el) {
-          el.textContent = msg;
-          el.style.color = isError ? '#c00' : '#888';
-        }
-        // 下部にも表示
-        if (msg && bottomNoticeText) {
-          bottomNoticeText.textContent = msg;
-          const notice = document.getElementById('bottomNotice');
-          if (isError) {
-            notice.classList.add('error');
-            notice.classList.remove('success', 'warning');
-          }
-        }
-        if (!isError && msg) {
-          setTimeout(() => { 
-            if (el) el.textContent = ''; 
-            this.updateAuthUI(); // 元の状態に戻す
-          }, 3000);
-        }
-      },
-      
-      // ログイン/ログアウト切り替え
-      async toggleAuth() {
-        if (this.user) {
-          if (confirm('ログアウトしますか？\n（ローカルデータは残ります）')) {
-            await firebase.auth().signOut();
-            this.setSyncStatus('ログアウトしました');
-          }
-        } else {
-          try {
-            const provider = new firebase.auth.GoogleAuthProvider();
-            await firebase.auth().signInWithPopup(provider);
-            this.setSyncStatus('ログインしました');
-          } catch (e) {
-            if (e.code !== 'auth/popup-closed-by-user') {
-              this.setSyncStatus('ログイン失敗', true);
-              addDebugLog('ログイン失敗: ' + e.message);
-            }
-          }
-        }
-      },
-      
-      // クラウドにバックアップ（debounce付き）
-      scheduleBackup() {
-        if (!this.user) return;
-        clearTimeout(this.syncTimeout);
-        this.syncTimeout = setTimeout(() => this.backupToCloud(), SYNC_DELAY_MS);
-      },
-      
-      // クラウドにバックアップ実行
-      async backupToCloud() {
-        if (!this.user || !this.firestore) return;
-        if (this.syncing) return; // 二重実行防止
-        
-        this.syncing = true;
-        try {
-          this.setSyncStatus('バックアップ中...');
-          
-          // 各データを収集（ローカルから読むだけなのでリトライ不要）
-          const shiftData = {
-            memoData: memoData,
-            shiftPatterns: shiftPatterns,
-            designSettings: designSettings,
-            statusColorSettings: statusColorSettings,
-            dayStatusColors: dayStatusColors
-          };
-          
-          const kakeiboList = await Kakeibo.getDataList();
-          const kakeiboData = {};
-          for (const item of kakeiboList) {
-            const data = await Kakeibo.loadDataByKey(item.key);
-            if (data) kakeiboData[item.key] = data;
-          }
-          
-          const memoList = await Memo.getDataList();
-          const memoDataCloud = {};
-          for (const item of memoList) {
-            const data = await Memo.loadDataByKey(item.key);
-            if (data) memoDataCloud[item.key] = data;
-          }
-          
-          // Firestoreに保存（リトライ付き）
-          await this.withRetry(async () => {
-            const docRef = this.firestore.collection('users').doc(this.user.uid);
-            await docRef.set({
-              shift: shiftData,
-              kakeibo: { list: kakeiboList, data: kakeiboData },
-              memo: { list: memoList, data: memoDataCloud },
-              isPro: isPro,
-              updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            }, { merge: true });
-          });
-          
-          this.lastSyncTime = new Date();
-          this.setSyncStatus('✓ バックアップ完了');
-          addDebugLog('Firebaseバックアップ完了');
-        } catch (e) {
-          this.setSyncStatus('バックアップ失敗', true);
-          addDebugLog('Firebaseバックアップ失敗: ' + e.message);
-        } finally {
-          this.syncing = false;
-        }
-      },
-      
-      // PRO状態をクラウドに保存
-      async setProStatus(status) {
-        if (!this.user || !this.firestore) return;
-        
-        try {
-          const docRef = this.firestore.collection('users').doc(this.user.uid);
-          await docRef.set({
-            isPro: status,
-            proUpdatedAt: firebase.firestore.FieldValue.serverTimestamp()
-          }, { merge: true });
-          addDebugLog('PRO状態をFirestoreに保存: ' + (status ? 'PRO' : '通常'));
-        } catch (e) {
-          addDebugLog('PRO状態の保存失敗: ' + e.message);
-          throw e;
-        }
-      },
-      
-      // クラウドから復元
-      async restoreFromCloud() {
-        if (!this.user || !this.firestore) return;
-        if (this.restoring) return; // 二重実行防止
-        
-        this.restoring = true;
-        try {
-          this.setSyncStatus('データ確認中...');
-          
-          // クラウドからデータ取得（リトライ付き）
-          const cloudData = await this.withRetry(async () => {
-            const docRef = this.firestore.collection('users').doc(this.user.uid);
-            const doc = await docRef.get();
-            return doc.exists ? doc.data() : null;
-          });
-          
-          if (!cloudData) {
-            this.setSyncStatus('新規ユーザー（初回バックアップ待機）');
-            // 初回は現在のローカルデータをバックアップ
-            setTimeout(() => this.backupToCloud(), SYNC_RESTORE_DELAY_MS);
-            return;
-          }
-          
-          const cloudTime = cloudData.updatedAt?.toDate?.() || new Date(0);
-          
-          // クラウドのPRO状態を確認（常に反映）
-          if (cloudData.isPro !== undefined) {
-            isPro = cloudData.isPro;
-            updateProUI();
-            addDebugLog('PRO状態をクラウドから復元: ' + (isPro ? 'PRO' : '通常'));
-          }
-          
-          // ローカルの最終更新時刻を取得
-          const localTime = await loadFromDB('lastSyncTime');
-          const localDate = localTime ? new Date(localTime) : new Date(0);
-          
-          // クラウドが新しい場合のみ復元を提案
-          if (cloudTime > localDate) {
-            const confirmRestore = confirm(
-              `クラウドに新しいデータがあります。\n` +
-              `クラウド: ${cloudTime.toLocaleString()}\n` +
-              `ローカル: ${localDate.getTime() ? localDate.toLocaleString() : '不明'}\n\n` +
-              `クラウドから復元しますか？\n（いいえを選ぶとローカルデータを維持）`
-            );
-            
-            if (confirmRestore) {
-              await this.applyCloudData(cloudData);
-              this.setSyncStatus('✓ 復元完了');
-            } else {
-              this.setSyncStatus('ローカルデータを維持');
-              // ローカルを優先した場合、後でバックアップ
-              setTimeout(() => this.backupToCloud(), SYNC_SAVE_DELAY_MS);
-            }
-          } else {
-            this.setSyncStatus('✓ 同期済み');
-          }
-          
-          // 同期時刻を保存
-          await saveToDB('lastSyncTime', new Date().toISOString());
-          
-        } catch (e) {
-          this.setSyncStatus('復元確認失敗', true);
-          addDebugLog('Firebase復元確認失敗: ' + e.message);
-        } finally {
-          this.restoring = false;
-        }
-      },
-      
-      // クラウドデータを適用（トランザクション的に処理）
-      async applyCloudData(cloudData) {
-        // 1. まず全データをメモリに準備（この段階ではDBに書き込まない）
-        const writes = [];
-        
-        // シフトデータ準備
-        if (cloudData.shift) {
-          if (cloudData.shift.memoData) {
-            writes.push({ key: 'memoData', value: cloudData.shift.memoData, apply: () => { memoData = cloudData.shift.memoData; } });
-          }
-          if (cloudData.shift.shiftPatterns) {
-            writes.push({ key: 'shiftPatterns', value: cloudData.shift.shiftPatterns, apply: () => { shiftPatterns = cloudData.shift.shiftPatterns; } });
-          }
-          if (cloudData.shift.designSettings) {
-            writes.push({ key: 'designSettings', value: cloudData.shift.designSettings, apply: () => { designSettings = cloudData.shift.designSettings; } });
-          }
-          if (cloudData.shift.statusColorSettings) {
-            writes.push({ key: 'statusColorSettings', value: cloudData.shift.statusColorSettings, apply: () => { statusColorSettings = cloudData.shift.statusColorSettings; } });
-          }
-          if (cloudData.shift.dayStatusColors) {
-            writes.push({ key: 'dayStatusColors', value: cloudData.shift.dayStatusColors, apply: () => { dayStatusColors = cloudData.shift.dayStatusColors; } });
-          }
-        }
-        
-        // 家計簿データ準備
-        if (cloudData.kakeibo && cloudData.kakeibo.list) {
-          writes.push({ key: 'kakeibo_list', value: cloudData.kakeibo.list });
-          for (const item of cloudData.kakeibo.list) {
-            if (cloudData.kakeibo.data[item.key]) {
-              writes.push({ key: 'kakeibo_data_' + item.key, value: cloudData.kakeibo.data[item.key] });
-            }
-          }
-        }
-        
-        // メモデータ準備
-        if (cloudData.memo && cloudData.memo.list) {
-          writes.push({ key: 'memo_list', value: cloudData.memo.list });
-          for (const item of cloudData.memo.list) {
-            if (cloudData.memo.data[item.key]) {
-              writes.push({ key: 'memo_data_' + item.key, value: cloudData.memo.data[item.key] });
-            }
-          }
-        }
-        
-        // 2. 全データを一気にDBに書き込む
-        try {
-          for (const write of writes) {
-            await saveToDB(write.key, write.value);
-            if (write.apply) write.apply(); // メモリ上の変数も更新
-          }
-          
-          // 3. UI更新（全書き込み成功後のみ）
-          if (cloudData.shift) {
-            applyTheme();
-            renderSchedule();
-          }
-          if (cloudData.kakeibo) {
-            await Kakeibo.updateListSelect();
-            await Kakeibo.loadLastEdited();
-          }
-          if (cloudData.memo) {
-            await Memo.updateListSelect();
-            await Memo.loadLastEdited();
-          }
-          
-          addDebugLog('クラウドデータ復元完了');
-        } catch (e) {
-          addDebugLog('復元中にエラー: ' + e.message);
-          throw e; // エラーを上位に伝播
-        }
-      }
+      syncing: false,
+      restoring: false,
+      async init() { addDebugLog('Firebase同期: 無効化済み'); },
+      scheduleBackup() {},
+      async backupToCloud() {},
+      async restoreFromCloud() {},
+      async setProStatus() {},
+      updateAuthUI() {},
+      toggleAuth() { showToast('クラウド同期は無効化されています'); },
+      setSyncStatus() {}
     };
 
     // ========== 統合初期化 ==========
@@ -5078,68 +4523,17 @@ PRO状態: ${data.isPro ? '✅' : '❌'}
     </div>
   </div>
 
-  <!-- PRO版モーダル（未認証時） -->
-  <div class="modal-overlay" id="proModal">
-    <div class="modal">
-      <div class="modal-header">✨ 支援のお願い</div>
-      <div class="modal-body">
-        <p style="font-size: 14px; color: #333; line-height: 1.8; text-align: center; margin-bottom: 20px;">
-          継続した開発のため<br>気に入りましたらPRO版の<br>ご購入をお願いします。
-        </p>
-        <p style="font-size: 13px; color: #888; text-align: center; margin-bottom: 20px;">
-          ※機能的な変更はありません
-        </p>
-        <div style="text-align: center;">
-          <a href="https://play.google.com/store/apps/details?id=com.kusenokimera.hkkey" target="_blank" class="pro-purchase-btn">
-            買い切り 300円
-          </a>
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button class="modal-btn cancel" onclick="closeProModal()">閉じる</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- 支援済みモーダル -->
-  <div class="modal-overlay" id="proThanksModal">
-    <div class="modal">
-      <div class="modal-header">🎉 ご支援ありがとうございます</div>
-      <div class="modal-body" style="text-align: center;">
-        <div style="font-size: 48px; margin-bottom: 16px;">💖</div>
-        <p style="font-size: 14px; color: #666; line-height: 1.8;">
-          今後もより良いアプリを目指して<br>開発を続けてまいります。
-        </p>
-      </div>
-      <div class="modal-footer">
-        <button class="modal-btn primary" onclick="closeProThanksModal()">閉じる</button>
-      </div>
-    </div>
-  </div>
-
   <!-- オプションメニュー（スライド式・全タブ共通） -->
   <div class="options-menu" id="optionsMenu">
     <div class="options-menu-header" onclick="toggleOptionsMenu()" style="cursor: pointer;">
       <h2>メニュー</h2>
       <span style="font-size: 11px; opacity: 0.7; margin-top: 2px;" id="menuVersionDisplay"></span>
     </div>
-    <!-- 認証セクション -->
-    <div class="menu-auth-section not-logged-in" id="menuAuthSection">
-      <div class="menu-auth-status"><span>⚠️</span><span id="menuAuthStatusText">バックアップ未設定</span></div>
-      <div class="menu-auth-email" id="menuAuthEmail" style="display:none;"></div>
-      <div class="menu-pro-badge" id="menuProBadge" style="display:none; font-size: 12px; color: #f39c12; margin-bottom: 8px;">🎉 支援済み</div>
-      <button class="menu-auth-btn google" id="menuAuthButton" onclick="FirebaseSync.toggleAuth()">
-        <svg width="16" height="16" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
-        Googleでログイン
-      </button>
-      <div class="menu-sync-status" id="menuSyncStatus"></div>
-    </div>
     <div class="options-menu-list">
       <!-- 共通メニュー -->
       <div class="menu-section-label">共通</div>
       <button onclick="openDesignModal(); toggleOptionsMenu();"><span class="icon">🎨</span>デザイン変更</button>
       <button onclick="openContactModal(); toggleOptionsMenu();"><span class="icon">✉️</span>お問い合わせ</button>
-      <button id="proMenuItem" onclick="openProModal(); toggleOptionsMenu();"><span class="icon">✨</span>支援</button>
       
       <!-- シフト専用メニュー -->
       <div class="menu-section-label menu-shift-only">📅 シフト</div>
