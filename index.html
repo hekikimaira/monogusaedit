@@ -1750,6 +1750,37 @@
       background: color-mix(in srgb, #ef4444 10%, transparent);
       border-left: 3px solid #ef4444;
     }
+
+    /* タイムライン ダブルタップメニュー */
+    .daily-time-menu {
+      position: fixed;
+      background: var(--card-bg, #fff);
+      border-radius: 10px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+      z-index: 300;
+      overflow: hidden;
+      min-width: 150px;
+    }
+    .dtm-btn {
+      display: block;
+      width: 100%;
+      padding: 13px 18px;
+      border: none;
+      background: var(--card-bg, #fff);
+      font-size: 14px;
+      cursor: pointer;
+      text-align: left;
+      color: var(--text-color, #333);
+      transition: background 0.12s;
+    }
+    .dtm-btn:hover { background: color-mix(in srgb, var(--bg-color, #f0f0f0) 80%, var(--card-bg, #fff)); }
+    .dtm-btn + .dtm-btn { border-top: 1px solid color-mix(in srgb, var(--text-color, #333) 10%, transparent); }
+    .dtm-btn.dtm-delete { color: #ef4444; }
+    .dtm-btn.dtm-add { color: #8b5cf6; }
+    .dtm-btn.dtm-cancel { color: var(--sub-text, #999); font-size: 13px; text-align: center; }
+
+    /* 時間指定モード中のヘッダーアクセント */
+    .daily-timeline-header span { vertical-align: middle; }
   </style>
 </head>
 <body class="current-tab-shift">
@@ -4816,6 +4847,7 @@ PRO状態: ${data.isPro ? '✅' : '❌'}
       todos: [],
       timeEvents: {},  // { '2026-2-13': { 14: 'ミーティング', 15: 'ミーティング', ... } }
       selectingStart: null, // タイムライン選択開始index
+      selectingEnd: null,   // タイムライン選択終了index
       initialized: false,
 
       // 日付変更
@@ -4864,29 +4896,38 @@ PRO状態: ${data.isPro ? '✅' : '❌'}
         await saveToDB('daily_time_' + key, this.timeEvents);
       },
 
-      // 前日の未完了TODOを引き継ぎ
+      // 過去の未完了TODOを引き継ぎ（完了するまで毎日反映）
       async carryOverTodos() {
-        // 今日のTODOがすでにある場合、キャリーオーバー済みかチェック
         const todayKey = this.getDateKey();
         const carryChecked = await loadFromDB('daily_carry_' + todayKey);
         if (carryChecked) return;
 
-        // 昨日の日付
-        const yesterday = new Date(this.currentDate);
-        yesterday.setDate(yesterday.getDate() - 1);
-        const yesterdayKey = `${yesterday.getFullYear()}-${yesterday.getMonth() + 1}-${yesterday.getDate()}`;
-        const yesterdayTodos = await loadFromDB('daily_todos_' + yesterdayKey);
+        // 過去30日分を遡って未完了を収集（重複テキストは除外）
+        const collectedTexts = new Set();
+        // 今日の既存TODOテキストも重複チェック用に収集
+        this.todos.forEach(t => { if (t.text.trim()) collectedTexts.add(t.text.trim()); });
 
-        if (yesterdayTodos && yesterdayTodos.length > 0) {
-          const incomplete = yesterdayTodos.filter(t => !t.done && t.text.trim());
-          if (incomplete.length > 0) {
-            // 既存のTODOの先頭に引き継ぎ分を追加
-            const carried = incomplete.map(t => ({ text: t.text, done: false, carried: true }));
-            this.todos = [...carried, ...this.todos];
-            await this.saveTodos();
-          }
+        const carried = [];
+        for (let d = 1; d <= 30; d++) {
+          const past = new Date(this.currentDate);
+          past.setDate(past.getDate() - d);
+          const pastKey = `${past.getFullYear()}-${past.getMonth() + 1}-${past.getDate()}`;
+          const pastTodos = await loadFromDB('daily_todos_' + pastKey);
+          if (!pastTodos) continue;
+
+          pastTodos.forEach(t => {
+            if (!t.done && t.text.trim() && !collectedTexts.has(t.text.trim())) {
+              collectedTexts.add(t.text.trim());
+              carried.push({ text: t.text, done: false, carried: true });
+            }
+          });
         }
-        // 引き継ぎ済みフラグ
+
+        if (carried.length > 0) {
+          this.todos = [...carried, ...this.todos];
+          await this.saveTodos();
+        }
+
         await saveToDB('daily_carry_' + todayKey, true);
       },
 
@@ -4895,6 +4936,7 @@ PRO状態: ${data.isPro ? '✅' : '❌'}
         await this.loadTodos();
         await this.loadTimeEvents();
         this.selectingStart = null;
+        this.selectingEnd = null;
 
         const d = this.currentDate;
         const weekdays = ['日', '月', '火', '水', '木', '金', '土'];
@@ -5063,7 +5105,6 @@ PRO状態: ${data.isPro ? '✅' : '❌'}
         // 0:00〜23:30 = 48ブロック
         for (let i = 0; i < 48; i++) {
           const hour = Math.floor(i / 2);
-          const min = (i % 2) * 30;
           const isHour = (i % 2 === 0);
 
           const row = document.createElement('div');
@@ -5086,22 +5127,19 @@ PRO状態: ${data.isPro ? '✅' : '❌'}
             span.className = 'event-text';
             span.textContent = eventText;
             block.appendChild(span);
-            const delBtn = document.createElement('button');
-            delBtn.className = 'event-delete';
-            delBtn.textContent = '×';
-            delBtn.onclick = (e) => {
-              e.stopPropagation();
-              this.deleteTimeEvent(i);
-            };
-            block.appendChild(delBtn);
           }
 
-          // タップ操作（2タップ範囲選択）
-          block.onclick = (e) => {
-            // イベント削除ボタンがクリックされた場合はスキップ
-            if (e.target.classList.contains('event-delete')) return;
-            this.onTimeBlockClick(i);
-          };
+          // 時間指定モード中の選択表示
+          if (this.rangeMode && this.selectingStart !== null && this.selectingEnd !== null) {
+            const minI = Math.min(this.selectingStart, this.selectingEnd);
+            const maxI = Math.max(this.selectingStart, this.selectingEnd);
+            if (i >= minI && i <= maxI) {
+              block.classList.add('selecting');
+            }
+          }
+
+          // ジェスチャー登録
+          this.bindBlockGestures(block, i);
 
           row.appendChild(label);
           row.appendChild(block);
@@ -5113,38 +5151,261 @@ PRO状態: ${data.isPro ? '✅' : '❌'}
         return section;
       },
 
-      onTimeBlockClick(index) {
-        // 既にインライン編集中ならそちらを優先
-        if (document.getElementById('dailyInlineInput')) return;
-        // イベントがある場合は無視
-        if (this.timeEvents[String(index)]) return;
+      // ====== ジェスチャー管理 ======
+      _tapTimer: null,
+      _tapCount: 0,
+      _tapIndex: null,
+      _longPressTimer: null,
+      rangeMode: false,  // 長押し時間指定モード
 
-        if (this.selectingStart === null) {
-          // 1タップ目：開始ブロック選択
-          this.selectingStart = index;
-          this.highlightSelecting(index, index);
-        } else {
-          // 2タップ目：終了ブロック確定
-          let startIdx = this.selectingStart;
-          let endIdx = index;
+      bindBlockGestures(block, index) {
+        let startX, startY;
+        const TAP_DELAY = 300;
+        const LONGPRESS_DELAY = 500;
 
-          if (startIdx > endIdx) [startIdx, endIdx] = [endIdx, startIdx];
+        const onDown = (e) => {
+          const touch = e.touches ? e.touches[0] : e;
+          startX = touch.clientX;
+          startY = touch.clientY;
 
-          // 範囲内に既存イベントがないかチェック
-          let conflict = false;
-          for (let i = startIdx; i <= endIdx; i++) {
-            if (this.timeEvents[String(i)]) { conflict = true; break; }
+          // 長押しタイマー開始
+          this._longPressTimer = setTimeout(() => {
+            this._longPressTimer = null;
+            this.onLongPress(index);
+          }, LONGPRESS_DELAY);
+        };
+
+        const onMove = (e) => {
+          if (!this._longPressTimer) return;
+          const touch = e.touches ? e.touches[0] : e;
+          const dx = Math.abs(touch.clientX - startX);
+          const dy = Math.abs(touch.clientY - startY);
+          if (dx > 10 || dy > 10) {
+            clearTimeout(this._longPressTimer);
+            this._longPressTimer = null;
           }
-          if (conflict) {
-            showToast('選択範囲にスケジュールがあります');
-            this.clearSelecting();
-            this.selectingStart = null;
+        };
+
+        const onUp = (e) => {
+          // 長押し発火済みならタップ処理しない
+          if (this._longPressTimer === null && !this._longPressFired) {
+            // 長押しキャンセル済み（指が動いた）→ 何もしない
             return;
           }
+          if (this._longPressFired) {
+            this._longPressFired = false;
+            return;
+          }
+          clearTimeout(this._longPressTimer);
+          this._longPressTimer = null;
 
-          // インライン入力を開始ブロックに表示
-          this.showInlineInput(startIdx, endIdx);
+          // タップカウント
+          if (this._tapIndex !== index) {
+            // 別のブロックをタップ → リセット
+            clearTimeout(this._tapTimer);
+            this._tapCount = 0;
+          }
+          this._tapCount++;
+          this._tapIndex = index;
+
+          if (this._tapCount === 1) {
+            this._tapTimer = setTimeout(() => {
+              // シングルタップ確定
+              this._tapCount = 0;
+              this.onSingleTap(index);
+            }, TAP_DELAY);
+          } else if (this._tapCount >= 2) {
+            // ダブルタップ確定
+            clearTimeout(this._tapTimer);
+            this._tapCount = 0;
+            this.onDoubleTap(index, e);
+          }
+        };
+
+        // touch
+        block.addEventListener('touchstart', onDown, { passive: true });
+        block.addEventListener('touchmove', onMove, { passive: true });
+        block.addEventListener('touchend', (e) => {
+          e.preventDefault(); // clickとの二重発火防止
+          onUp(e);
+        });
+        // mouse（PC用）
+        block.addEventListener('mousedown', onDown);
+        block.addEventListener('mousemove', onMove);
+        block.addEventListener('mouseup', onUp);
+        // デフォルトclick無効化（ジェスチャーで制御するため）
+        block.addEventListener('click', (e) => e.preventDefault());
+      },
+
+      _longPressFired: false,
+
+      // ---- 長押し → 時間指定モード ----
+      onLongPress(index) {
+        this._longPressFired = true;
+        if (this.rangeMode) {
+          // 既にモードON → 解除
+          this.exitRangeMode();
+          showToast('時間指定モード解除');
+          return;
         }
+        this.rangeMode = true;
+        this.selectingStart = null;
+        this.selectingEnd = null;
+        this.clearSelecting();
+        showToast('時間指定モード：2箇所タップで範囲選択');
+        // ヘッダーにモード表示
+        const header = document.querySelector('.daily-timeline-header');
+        if (header) header.innerHTML = '🕐 タイムスケジュール <span style="font-size:11px;background:rgba(255,255,255,0.3);padding:2px 8px;border-radius:8px;margin-left:6px;">⏱ 範囲選択中</span>';
+      },
+
+      exitRangeMode() {
+        this.rangeMode = false;
+        this.selectingStart = null;
+        this.selectingEnd = null;
+        this.clearSelecting();
+        const header = document.querySelector('.daily-timeline-header');
+        if (header) header.innerHTML = '🕐 タイムスケジュール';
+      },
+
+      // ---- シングルタップ ----
+      onSingleTap(index) {
+        if (document.getElementById('dailyInlineInput')) return;
+
+        if (this.rangeMode) {
+          // 時間指定モード中 → 範囲の1点目 or 2点目
+          if (this.selectingStart === null) {
+            this.selectingStart = index;
+            this.selectingEnd = null;
+            this.highlightSelecting(index, index);
+          } else if (this.selectingEnd === null) {
+            // 2点目確定
+            let s = this.selectingStart, e = index;
+            if (s > e) [s, e] = [e, s];
+
+            // 競合チェック
+            let conflict = false;
+            for (let i = s; i <= e; i++) {
+              if (this.timeEvents[String(i)]) { conflict = true; break; }
+            }
+            if (conflict) {
+              showToast('選択範囲にスケジュールがあります');
+              this.selectingStart = null;
+              this.selectingEnd = null;
+              this.clearSelecting();
+              return;
+            }
+
+            this.selectingStart = s;
+            this.selectingEnd = e;
+            this.highlightSelecting(s, e);
+            // 範囲確定 → 一番上にインライン入力
+            this.showInlineInput(s, e);
+          } else {
+            // 既に範囲確定済み → リセットして新しい1点目
+            this.clearSelecting();
+            this.selectingStart = index;
+            this.selectingEnd = null;
+            this.highlightSelecting(index, index);
+          }
+          return;
+        }
+
+        // 通常モード → シングルタップでそのブロック(30分)にインライン入力
+        if (this.timeEvents[String(index)]) return; // 既存イベントはダブルタップで操作
+        this.selectingStart = index;
+        this.selectingEnd = index;
+        this.highlightSelecting(index, index);
+        this.showInlineInput(index, index);
+      },
+
+      // ---- ダブルタップ → フローティングメニュー ----
+      onDoubleTap(index, e) {
+        this.showTimelineMenu(index, e);
+      },
+
+      showTimelineMenu(index, e) {
+        // 既存メニューを削除
+        const old = document.getElementById('dailyTimeMenu');
+        if (old) old.remove();
+
+        const eventText = this.timeEvents[String(index)];
+        const menu = document.createElement('div');
+        menu.id = 'dailyTimeMenu';
+        menu.className = 'daily-time-menu';
+
+        if (eventText) {
+          // 既存イベントあり → 削除 & 編集
+          menu.innerHTML = `
+            <button class="dtm-btn dtm-edit" data-action="edit">✏️ 編集</button>
+            <button class="dtm-btn dtm-delete" data-action="delete">🗑 削除</button>
+            <button class="dtm-btn dtm-cancel" data-action="cancel">✕ 閉じる</button>
+          `;
+        } else {
+          // 空ブロック → 追加
+          menu.innerHTML = `
+            <button class="dtm-btn dtm-add" data-action="add">＋ ここに追加</button>
+            <button class="dtm-btn dtm-cancel" data-action="cancel">✕ 閉じる</button>
+          `;
+        }
+
+        // 位置決め
+        const block = document.querySelector(`.daily-time-block[data-index="${index}"]`);
+        const rect = block ? block.getBoundingClientRect() : { top: 200, left: 100 };
+        menu.style.top = Math.min(rect.top, window.innerHeight - 160) + 'px';
+        menu.style.left = Math.max(16, rect.left) + 'px';
+
+        document.body.appendChild(menu);
+
+        // イベント
+        menu.querySelectorAll('.dtm-btn').forEach(btn => {
+          btn.onclick = () => {
+            const action = btn.dataset.action;
+            menu.remove();
+            if (action === 'delete') this.deleteTimeEvent(index);
+            if (action === 'add') {
+              this.selectingStart = index;
+              this.selectingEnd = index;
+              this.highlightSelecting(index, index);
+              this.showInlineInput(index, index);
+            }
+            if (action === 'edit') this.editTimeEvent(index);
+          };
+        });
+
+        // 外側タップで閉じる
+        const closeHandler = (ev) => {
+          if (!menu.contains(ev.target)) {
+            menu.remove();
+            document.removeEventListener('touchstart', closeHandler, true);
+            document.removeEventListener('mousedown', closeHandler, true);
+          }
+        };
+        setTimeout(() => {
+          document.addEventListener('touchstart', closeHandler, true);
+          document.addEventListener('mousedown', closeHandler, true);
+        }, 50);
+      },
+
+      editTimeEvent(index) {
+        const eventText = this.timeEvents[String(index)];
+        if (!eventText) return;
+
+        // 連続ブロック範囲を探す
+        let start = index;
+        while (start > 0 && this.timeEvents[String(start - 1)] === eventText) start--;
+        let end = index;
+        while (end < 47 && this.timeEvents[String(end + 1)] === eventText) end++;
+
+        // 一旦消してインライン入力
+        for (let i = start; i <= end; i++) {
+          delete this.timeEvents[String(i)];
+        }
+        this.selectingStart = start;
+        this.selectingEnd = end;
+        this.render().then(() => {
+          this.highlightSelecting(start, end);
+          this.showInlineInput(start, end, eventText);
+        });
       },
 
       highlightSelecting(from, to) {
@@ -5162,7 +5423,7 @@ PRO状態: ${data.isPro ? '✅' : '❌'}
         document.querySelectorAll('.daily-time-block.selecting').forEach(el => el.classList.remove('selecting'));
       },
 
-      showInlineInput(startIdx, endIdx) {
+      showInlineInput(startIdx, endIdx, defaultText) {
         const startH = Math.floor(startIdx / 2);
         const startM = (startIdx % 2) * 30;
         const endH = Math.floor((endIdx + 1) / 2);
@@ -5181,15 +5442,18 @@ PRO状態: ${data.isPro ? '✅' : '❌'}
         input.id = 'dailyInlineInput';
         input.className = 'daily-inline-input';
         input.placeholder = timeRange;
+        if (defaultText) input.value = defaultText;
 
         block.appendChild(input);
-        setTimeout(() => input.focus(), 50);
+        setTimeout(() => { input.focus(); if (defaultText) input.select(); }, 50);
 
         const cleanup = () => {
           this.clearSelecting();
           this.selectingStart = null;
+          this.selectingEnd = null;
+          if (this.rangeMode) this.exitRangeMode();
           const existing = document.getElementById('dailyInlineInput');
-          if (existing) this.render(); // re-render to reset
+          if (existing) this.render();
         };
 
         const doConfirm = async () => {
@@ -5207,10 +5471,9 @@ PRO状態: ${data.isPro ? '✅' : '❌'}
           if (e.key === 'Escape') cleanup();
         };
         input.onblur = () => {
-          // 少し遅延してblurで確定（他の操作との競合防止）
           setTimeout(() => {
             if (document.getElementById('dailyInlineInput')) doConfirm();
-          }, 150);
+          }, 200);
         };
       },
 
@@ -5253,7 +5516,6 @@ PRO状態: ${data.isPro ? '✅' : '❌'}
         this.todos.push({ text: '', done: false, carried: false });
         await this.saveTodos();
         await this.render();
-        // 最後の入力欄にフォーカス
         setTimeout(() => {
           const inputs = document.querySelectorAll('.daily-todo-text');
           if (inputs.length) inputs[inputs.length - 1].focus();
@@ -5266,9 +5528,7 @@ PRO状態: ${data.isPro ? '✅' : '❌'}
           this.todos.splice(this.selectedTodoIdx, 1);
           this.selectedTodoIdx = null;
         } else {
-          // 最後の空TODO行を削除
           if (this.todos.length > 0) {
-            // 後ろから空を探す
             let found = -1;
             for (let i = this.todos.length - 1; i >= 0; i--) {
               if (!this.todos[i].text.trim()) { found = i; break; }
@@ -5276,7 +5536,6 @@ PRO状態: ${data.isPro ? '✅' : '❌'}
             if (found >= 0) {
               this.todos.splice(found, 1);
             } else {
-              // 全部埋まってる場合は最後を削除
               this.todos.pop();
             }
           }
