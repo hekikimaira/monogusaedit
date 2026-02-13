@@ -1453,6 +1453,17 @@
     }
     .daily-schedule-header { background: #3498db; }
     .daily-todo-header { background: #f59e0b; }
+    .daily-todo-add-row {
+      padding: 10px 14px;
+      text-align: center;
+      color: #f59e0b;
+      font-size: 22px;
+      font-weight: bold;
+      cursor: pointer;
+      border-top: 1px dashed color-mix(in srgb, var(--text-color, #333) 10%, transparent);
+      transition: background 0.12s;
+    }
+    .daily-todo-add-row:active { background: #fffbeb; }
     .daily-timeline-header { background: #8b5cf6; }
     .daily-section-body { padding: 0; }
 
@@ -1597,10 +1608,6 @@
       color: var(--text-color, #333);
       transition: background 0.1s;
     }
-    .daily-time-block:hover { background: color-mix(in srgb, var(--primary-color, #3498db) 8%, transparent); }
-    .daily-time-block.selecting {
-      background: color-mix(in srgb, #8b5cf6 20%, transparent) !important;
-    }
     .daily-time-block.has-event {
       background: color-mix(in srgb, #8b5cf6 15%, transparent);
       font-weight: 500;
@@ -1687,46 +1694,6 @@
       color: #fff;
     }
     .daily-schedule-modal-footer .confirm-btn:hover { background: #7c3aed; }
-
-    /* フローティング+−ボタン */
-    .daily-fab-group {
-      position: fixed;
-      bottom: 80px;
-      right: 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      z-index: 150;
-    }
-    .daily-fab {
-      width: 50px;
-      height: 50px;
-      border-radius: 50%;
-      border: none;
-      font-size: 24px;
-      font-weight: bold;
-      cursor: pointer;
-      box-shadow: 0 3px 12px rgba(0,0,0,0.25);
-      transition: transform 0.15s, box-shadow 0.15s;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .daily-fab:active { transform: scale(0.92); }
-    .daily-fab-plus {
-      background: #f59e0b;
-      color: #fff;
-    }
-    .daily-fab-plus:hover { box-shadow: 0 4px 16px rgba(245,158,11,0.4); }
-    .daily-fab-minus {
-      background: #ef4444;
-      color: #fff;
-    }
-    .daily-fab-minus:hover { box-shadow: 0 4px 16px rgba(239,68,68,0.4); }
-
-    /* 1日タブ以外ではフローティングボタン非表示 */
-    .daily-fab-group { display: none; }
-    body.current-tab-daily .daily-fab-group { display: flex; }
 
     /* インライン入力（タイムライン） */
     .daily-inline-input {
@@ -3835,11 +3802,6 @@ PRO状態: ${data.isPro ? '✅' : '❌'}
         <button class="daily-today-btn" onclick="DailyView.goToToday()">今日</button>
       </div>
       <div class="daily-container" id="dailyContainer"></div>
-      <!-- フローティング +/− ボタン -->
-      <div class="daily-fab-group" id="dailyFabGroup">
-        <button class="daily-fab daily-fab-minus" id="dailyFabMinus" onclick="DailyView.onFabMinus()">−</button>
-        <button class="daily-fab daily-fab-plus" id="dailyFabPlus" onclick="DailyView.onFabPlus()">＋</button>
-      </div>
     </div>
   </div><!-- /daily-tab -->
 
@@ -5018,14 +4980,12 @@ PRO状態: ${data.isPro ? '✅' : '❌'}
           list.appendChild(this.createTodoItem(todo, idx));
         });
 
-        // TODOが空なら案内
-        if (this.todos.length === 0) {
-          const empty = document.createElement('div');
-          empty.className = 'daily-schedule-empty';
-          empty.textContent = '＋ボタンでタスクを追加';
-          empty.style.textAlign = 'center';
-          list.appendChild(empty);
-        }
+        // 追加ボタン（白エリア内）
+        const addRow = document.createElement('div');
+        addRow.className = 'daily-todo-add-row';
+        addRow.onclick = () => this.addTodo();
+        addRow.textContent = '＋';
+        list.appendChild(addRow);
 
         body.appendChild(list);
         section.appendChild(body);
@@ -5034,7 +4994,7 @@ PRO状態: ${data.isPro ? '✅' : '❌'}
 
       createTodoItem(todo, idx) {
         const item = document.createElement('div');
-        item.className = 'daily-todo-item' + (todo.done ? ' completed' : '') + (this.selectedTodoIdx === idx ? ' selected' : '');
+        item.className = 'daily-todo-item' + (todo.done ? ' completed' : '');
 
         const checkbox = document.createElement('div');
         checkbox.className = 'daily-todo-checkbox' + (todo.done ? ' checked' : '');
@@ -5049,8 +5009,11 @@ PRO状態: ${data.isPro ? '✅' : '❌'}
           this.todos[idx].text = e.target.value;
           this.saveTodos();
         };
-        // タップで選択（−で削除用）
-        input.onfocus = () => this.selectTodo(idx);
+
+        const del = document.createElement('button');
+        del.className = 'daily-todo-delete';
+        del.textContent = '×';
+        del.onclick = () => this.deleteTodo(idx);
 
         item.appendChild(checkbox);
         if (todo.carried) {
@@ -5060,6 +5023,7 @@ PRO状態: ${data.isPro ? '✅' : '❌'}
           item.appendChild(badge);
         }
         item.appendChild(input);
+        item.appendChild(del);
         return item;
       },
 
@@ -5067,7 +5031,6 @@ PRO状態: ${data.isPro ? '✅' : '❌'}
         this.todos.push({ text: '', done: false, carried: false });
         await this.saveTodos();
         this.render();
-        // フォーカスを最後の入力欄へ
         setTimeout(() => {
           const inputs = document.querySelectorAll('.daily-todo-text');
           if (inputs.length) inputs[inputs.length - 1].focus();
@@ -5138,7 +5101,16 @@ PRO状態: ${data.isPro ? '✅' : '❌'}
 
       // 空ブロックタップ → インライン入力
       onEmptyBlockTap(index) {
-        if (document.getElementById('dailyInlineInput')) return;
+        // 既存の入力欄があれば即確定して閉じる
+        const existing = document.getElementById('dailyInlineInput');
+        if (existing) {
+          const text = existing.value.trim();
+          if (text && existing._confirmFn) {
+            existing._confirmFn();
+            return; // 確定後re-renderされるので次タップで開く
+          }
+          existing.remove();
+        }
 
         const block = document.querySelector(`.daily-time-block[data-index="${index}"]`);
         if (!block) return;
@@ -5157,29 +5129,30 @@ PRO状態: ${data.isPro ? '✅' : '❌'}
         input.placeholder = timeStr;
 
         block.appendChild(input);
-        setTimeout(() => input.focus(), 50);
+        setTimeout(() => input.focus(), 30);
 
-        const cleanup = () => {
-          const existing = document.getElementById('dailyInlineInput');
-          if (existing) this.render();
-        };
+        const self = this;
 
         const doConfirm = async () => {
           const text = input.value.trim();
-          if (!text) { cleanup(); return; }
-          this.timeEvents[String(index)] = text;
-          await this.saveTimeEvents();
-          cleanup();
+          if (text) {
+            self.timeEvents[String(index)] = text;
+            await self.saveTimeEvents();
+          }
+          self.render();
         };
+
+        // 確定関数を入力要素に紐付け（外部から呼べるように）
+        input._confirmFn = doConfirm;
 
         input.onkeydown = (e) => {
           if (e.key === 'Enter') { e.preventDefault(); doConfirm(); }
-          if (e.key === 'Escape') cleanup();
+          if (e.key === 'Escape') self.render();
         };
         input.onblur = () => {
           setTimeout(() => {
-            if (document.getElementById('dailyInlineInput')) doConfirm();
-          }, 200);
+            if (document.getElementById('dailyInlineInput') === input) doConfirm();
+          }, 150);
         };
       },
 
@@ -5207,56 +5180,6 @@ PRO状態: ${data.isPro ? '✅' : '❌'}
           this.saveTimeEvents();
           this.render();
         }
-      },
-
-      // ====== フローティングボタン操作 ======
-      selectedTodoIdx: null,
-
-      // TODO項目のタップでの選択切り替え
-      selectTodo(idx) {
-        if (this.selectedTodoIdx === idx) {
-          this.selectedTodoIdx = null;
-        } else {
-          this.selectedTodoIdx = idx;
-        }
-        // 選択状態の見た目を更新
-        document.querySelectorAll('.daily-todo-item').forEach((el, i) => {
-          el.classList.toggle('selected', i === this.selectedTodoIdx);
-        });
-      },
-
-      async onFabPlus() {
-        // TODO追加
-        this.todos.push({ text: '', done: false, carried: false });
-        await this.saveTodos();
-        await this.render();
-        setTimeout(() => {
-          const inputs = document.querySelectorAll('.daily-todo-text');
-          if (inputs.length) inputs[inputs.length - 1].focus();
-        }, 50);
-      },
-
-      async onFabMinus() {
-        // 選択中のTODOがあればそれを削除、なければ最後の空行を削除
-        if (this.selectedTodoIdx !== null && this.selectedTodoIdx < this.todos.length) {
-          this.todos.splice(this.selectedTodoIdx, 1);
-          this.selectedTodoIdx = null;
-        } else {
-          if (this.todos.length > 0) {
-            let found = -1;
-            for (let i = this.todos.length - 1; i >= 0; i--) {
-              if (!this.todos[i].text.trim()) { found = i; break; }
-            }
-            if (found >= 0) {
-              this.todos.splice(found, 1);
-            } else {
-              this.todos.pop();
-            }
-          }
-        }
-        if (this.todos.length === 0) this.selectedTodoIdx = null;
-        await this.saveTodos();
-        this.render();
       },
 
       // タイムラインの現在時刻にスクロール
