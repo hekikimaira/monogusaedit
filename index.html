@@ -1170,6 +1170,61 @@
       z-index: 1001;
     }
     .global-menu-btn:hover { background: #34495e; }
+
+    /* 共通ツールバー */
+    .global-toolbar {
+      display: flex;
+      align-items: center;
+      background: linear-gradient(135deg, #2196F3, #1976D2);
+      padding: 8px 10px;
+      gap: 4px;
+      position: sticky;
+      top: 44px;
+      z-index: 99;
+    }
+    .gtb-nav {
+      background: rgba(255,255,255,0.2);
+      border: none;
+      color: #fff;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      font-size: 14px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .gtb-nav:active { background: rgba(255,255,255,0.35); }
+    .gtb-date {
+      color: #fff;
+      font-weight: bold;
+      font-size: 15px;
+      white-space: nowrap;
+      padding: 0 4px;
+    }
+    .gtb-today {
+      background: rgba(255,255,255,0.2);
+      border: none;
+      color: #fff;
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    .gtb-today:active { background: rgba(255,255,255,0.35); }
+    .gtb-spacer { flex: 1; }
+    .gtb-icon {
+      background: none;
+      border: none;
+      font-size: 18px;
+      cursor: pointer;
+      padding: 4px;
+      border-radius: 6px;
+      transition: background 0.12s;
+    }
+    .gtb-icon:active { background: rgba(255,255,255,0.2); }
     .main-tab-content { display: none; }
     .main-tab-content.active { display: block; }
 
@@ -1571,164 +1626,60 @@
       user-select: none;
       -webkit-user-select: none;
     }
-    .daily-time-row {
+    .daily-hour-group {
       display: grid;
       grid-template-columns: 52px 1fr;
-      min-height: 28px;
-      border-bottom: 1px solid color-mix(in srgb, var(--text-color, #333) 6%, transparent);
-      transition: background 0.1s;
-    }
-    .daily-time-row:nth-child(odd) {
-      border-bottom-style: dashed;
-    }
-    .daily-time-row:nth-child(even) {
-      border-bottom-style: solid;
+      border-bottom: 1px solid color-mix(in srgb, var(--text-color, #333) 10%, transparent);
     }
     .daily-time-label {
       display: flex;
-      align-items: center;
+      align-items: flex-start;
       justify-content: center;
-      font-size: 11px;
-      color: var(--sub-text, #999);
+      padding-top: 8px;
+      font-size: 12px;
+      font-weight: bold;
+      color: var(--text-color, #666);
       border-right: 1px solid color-mix(in srgb, var(--text-color, #333) 10%, transparent);
       background: color-mix(in srgb, var(--bg-color, #f0f0f0) 50%, var(--card-bg, #fff));
     }
-    .daily-time-row:nth-child(odd) .daily-time-label {
-      font-weight: bold;
-      font-size: 12px;
-      color: var(--text-color, #666);
+    .daily-hour-slots {
+      display: flex;
+      flex-direction: column;
     }
-    .daily-time-block {
-      min-height: 28px;
+    .daily-time-slot {
+      min-height: 32px;
       cursor: pointer;
-      padding: 2px 8px;
+      padding: 4px 10px;
       display: flex;
       align-items: center;
-      font-size: 12px;
+      font-size: 13px;
       color: var(--text-color, #333);
       transition: background 0.1s;
     }
-    .daily-time-block.has-event {
-      background: color-mix(in srgb, #8b5cf6 15%, transparent);
-      font-weight: 500;
+    .daily-time-slot + .daily-time-slot {
+      border-top: 1px dashed color-mix(in srgb, var(--text-color, #333) 6%, transparent);
+    }
+    .daily-time-slot.has-event {
+      background: color-mix(in srgb, #8b5cf6 12%, transparent);
       border-left: 3px solid #8b5cf6;
     }
-    .daily-time-block.has-event .event-text {
+    .daily-time-slot .slot-text {
       flex: 1;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
     }
-    .daily-time-block.has-event .event-delete {
-      background: none;
-      border: none;
-      color: #c4b5fd;
-      font-size: 14px;
-      cursor: pointer;
-      padding: 0 2px;
-      flex-shrink: 0;
-    }
-    .daily-time-block.has-event .event-delete:hover { color: #e74c3c; }
+    .daily-time-slot.inline-editing { padding: 0 !important; }
 
-    /* スケジュール入力モーダル */
-    .daily-schedule-modal-overlay {
-      position: fixed;
-      top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(0,0,0,0.4);
-      z-index: 2000;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .daily-schedule-modal {
-      background: var(--card-bg, #fff);
-      border-radius: 12px;
-      width: 85%;
-      max-width: 360px;
-      box-shadow: 0 8px 30px rgba(0,0,0,0.25);
-      overflow: hidden;
-    }
-    .daily-schedule-modal-header {
-      background: #8b5cf6;
-      color: #fff;
-      padding: 14px 16px;
-      font-weight: bold;
-      font-size: 15px;
-    }
-    .daily-schedule-modal-body {
-      padding: 16px;
-    }
-    .daily-schedule-modal-body input {
-      width: 100%;
-      padding: 10px 12px;
-      border: 2px solid #e5e7eb;
-      border-radius: 8px;
-      font-size: 15px;
-      outline: none;
-      background: var(--card-bg, #fff);
-      color: var(--text-color, #333);
-    }
-    .daily-schedule-modal-body input:focus {
-      border-color: #8b5cf6;
-    }
-    .daily-schedule-modal-footer {
-      display: flex;
-      border-top: 1px solid #e5e7eb;
-    }
-    .daily-schedule-modal-footer button {
-      flex: 1;
-      padding: 14px;
-      border: none;
-      font-size: 15px;
-      font-weight: bold;
-      cursor: pointer;
-      transition: background 0.15s;
-    }
-    .daily-schedule-modal-footer .cancel-btn {
-      background: #f3f4f6;
-      color: #6b7280;
-    }
-    .daily-schedule-modal-footer .cancel-btn:hover { background: #e5e7eb; }
-    .daily-schedule-modal-footer .confirm-btn {
-      background: #8b5cf6;
-      color: #fff;
-    }
-    .daily-schedule-modal-footer .confirm-btn:hover { background: #7c3aed; }
-
-    /* インライン入力（タイムライン） */
-    .daily-inline-input {
-      width: 100%;
-      height: 100%;
-      border: none;
-      outline: none;
-      background: color-mix(in srgb, #8b5cf6 15%, transparent);
-      font-size: 13px;
-      padding: 2px 8px;
-      color: var(--text-color, #333);
-      border-left: 3px solid #8b5cf6;
-    }
-    .daily-inline-input::placeholder { color: #a78bfa; font-size: 11px; }
-    .daily-time-block.inline-editing {
-      padding: 0 !important;
-    }
-
-    /* TODO選択状態 */
-    .daily-todo-item.selected {
-      background: color-mix(in srgb, #ef4444 10%, transparent);
-      border-left: 3px solid #ef4444;
-    }
-
-    /* タイムライン ダブルタップメニュー */
-    .daily-time-menu {
-      position: fixed;
+    /* 長押しメニュー */
+    .daily-slot-menu {
       background: var(--card-bg, #fff);
       border-radius: 10px;
       box-shadow: 0 4px 20px rgba(0,0,0,0.25);
-      z-index: 300;
       overflow: hidden;
-      min-width: 150px;
+      min-width: 160px;
     }
-    .dtm-btn {
+    .dsm-btn {
       display: block;
       width: 100%;
       padding: 13px 18px;
@@ -1738,16 +1689,27 @@
       cursor: pointer;
       text-align: left;
       color: var(--text-color, #333);
-      transition: background 0.12s;
     }
-    .dtm-btn:hover { background: color-mix(in srgb, var(--bg-color, #f0f0f0) 80%, var(--card-bg, #fff)); }
-    .dtm-btn + .dtm-btn { border-top: 1px solid color-mix(in srgb, var(--text-color, #333) 10%, transparent); }
-    .dtm-btn.dtm-delete { color: #ef4444; }
-    .dtm-btn.dtm-add { color: #8b5cf6; }
-    .dtm-btn.dtm-cancel { color: var(--sub-text, #999); font-size: 13px; text-align: center; }
+    .dsm-btn:active { background: color-mix(in srgb, var(--bg-color, #f0f0f0) 80%, var(--card-bg, #fff)); }
+    .dsm-btn + .dsm-btn { border-top: 1px solid color-mix(in srgb, var(--text-color, #333) 8%, transparent); }
+    .dsm-btn.dsm-delete { color: #ef4444; }
+    .dsm-btn.dsm-add { color: #8b5cf6; }
+    .dsm-btn.dsm-cancel { color: var(--sub-text, #999); font-size: 13px; text-align: center; }
 
-    /* 時間指定モード中のヘッダーアクセント */
-    .daily-timeline-header span { vertical-align: middle; }
+    /* インライン入力（タイムライン） */
+    .daily-inline-input {
+      width: 100%;
+      height: 100%;
+      border: none;
+      outline: none;
+      background: color-mix(in srgb, #8b5cf6 15%, transparent);
+      font-size: 13px;
+      padding: 4px 10px;
+      color: var(--text-color, #333);
+      border-left: 3px solid #8b5cf6;
+    }
+    .daily-inline-input::placeholder { color: #a78bfa; font-size: 12px; }
+
   </style>
 </head>
 <body class="current-tab-shift">
@@ -1757,8 +1719,22 @@
     <button class="main-tab-btn daily-tab" onclick="switchMainTab('daily')">📋 1日</button>
     <button class="main-tab-btn kakeibo-tab" onclick="switchMainTab('kakeibo')">💰 家計簿</button>
     <button class="main-tab-btn memo-tab" onclick="switchMainTab('memo')">📝 メモ</button>
-    <button class="global-menu-btn" onclick="toggleOptionsMenu()">☰</button>
+    <button class="global-menu-btn" style="display:none;" onclick="toggleOptionsMenu()">☰</button>
   </nav>
+
+  <!-- ========== 共通ツールバー ========== -->
+  <div class="global-toolbar" id="globalToolbar">
+    <button class="gtb-nav" onclick="globalChangeDate(-1)">◀</button>
+    <div class="gtb-date" id="globalDateDisplay"></div>
+    <button class="gtb-nav" onclick="globalChangeDate(1)">▶</button>
+    <button class="gtb-today" onclick="globalGoToToday()">今日</button>
+    <div class="gtb-spacer"></div>
+    <button class="gtb-icon" onclick="globalHistory()" title="履歴">📜</button>
+    <button class="gtb-icon" onclick="globalImport()" title="インポート">📁</button>
+    <button class="gtb-icon" onclick="globalExport()" title="エクスポート">📤</button>
+    <button class="gtb-icon" onclick="openDesignModal()" title="デザイン">🎨</button>
+    <button class="gtb-icon" onclick="openContactModal()" title="問い合わせ">✉️</button>
+  </div>
 
   <!-- ========== シフトカレンダータブ ========== -->
   <div id="shift-tab" class="main-tab-content shift-tab-content active">
@@ -1790,7 +1766,6 @@
       <button onclick="changeYear(1)">▶</button>
       <button class="edit-mode-btn" id="editModeBtn" onclick="toggleEditMode()">シフト</button>
       <button class="history-btn" onclick="ShiftHistory.toggle()">📜<span id="shiftHistoryCount"></span></button>
-      <button class="todo-shortcut-btn" onclick="openTodo()">T</button>
     </div>
 
     <!-- シフト履歴オーバーレイ -->
@@ -3795,12 +3770,6 @@ PRO状態: ${data.isPro ? '✅' : '❌'}
   <!-- ========== 1日タブ ========== -->
   <div id="daily-tab" class="main-tab-content">
     <div class="daily-app">
-      <div class="daily-date-header">
-        <button onclick="DailyView.changeDate(-1)">◀</button>
-        <div class="daily-date-display" id="dailyDateDisplay"></div>
-        <button onclick="DailyView.changeDate(1)">▶</button>
-        <button class="daily-today-btn" onclick="DailyView.goToToday()">今日</button>
-      </div>
       <div class="daily-container" id="dailyContainer"></div>
     </div>
   </div><!-- /daily-tab -->
@@ -3944,6 +3913,76 @@ PRO状態: ${data.isPro ? '✅' : '❌'}
       if (tab === 'daily') {
         DailyView.render();
       }
+
+      updateGlobalToolbar();
+    }
+
+    // ========== 共通ツールバー ==========
+    function getCurrentTab() {
+      return localStorage.getItem('currentMainTab') || 'shift';
+    }
+
+    function updateGlobalToolbar() {
+      const tab = getCurrentTab();
+      const display = document.getElementById('globalDateDisplay');
+      const weekdays = ['日', '月', '火', '水', '木', '金', '土'];
+
+      if (tab === 'daily') {
+        const d = DailyView.currentDate;
+        const wd = weekdays[d.getDay()];
+        display.textContent = `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()} (${wd})`;
+      } else if (tab === 'shift') {
+        const y = document.getElementById('yearDisplay');
+        display.textContent = y ? y.textContent : '';
+      } else {
+        const now = new Date();
+        display.textContent = `${now.getFullYear()}/${now.getMonth()+1}/${now.getDate()}`;
+      }
+    }
+
+    function globalChangeDate(delta) {
+      const tab = getCurrentTab();
+      if (tab === 'daily') {
+        DailyView.changeDate(delta);
+        updateGlobalToolbar();
+      } else if (tab === 'shift') {
+        changeYear(delta);
+        updateGlobalToolbar();
+      }
+    }
+
+    function globalGoToToday() {
+      const tab = getCurrentTab();
+      if (tab === 'daily') {
+        DailyView.goToToday();
+        updateGlobalToolbar();
+      } else if (tab === 'shift') {
+        goToToday();
+      }
+    }
+
+    function globalHistory() {
+      const tab = getCurrentTab();
+      if (tab === 'shift') ShiftHistory.toggle();
+      else if (tab === 'kakeibo') Kakeibo.toggleHistory();
+      else if (tab === 'memo') Memo.toggleHistory();
+      else showToast('このタブに履歴はありません');
+    }
+
+    function globalImport() {
+      const tab = getCurrentTab();
+      if (tab === 'shift') triggerImport();
+      else if (tab === 'kakeibo') document.getElementById('kakeiboImportFile').click();
+      else if (tab === 'memo') document.getElementById('memoImportFile').click();
+      else showToast('このタブにインポート機能はありません');
+    }
+
+    function globalExport() {
+      const tab = getCurrentTab();
+      if (tab === 'shift') exportData();
+      else if (tab === 'kakeibo') Kakeibo.exportData();
+      else if (tab === 'memo') Memo.exportData();
+      else showToast('このタブにエクスポート機能はありません');
     }
 
     // ========== 家計簿モジュール（新仕様）==========
@@ -4895,15 +4934,15 @@ PRO状態: ${data.isPro ? '✅' : '❌'}
       async render() {
         await this.loadTodos();
         await this.loadTimeEvents();
+        this.migrateTimeEvents();
 
         const d = this.currentDate;
         const weekdays = ['日', '月', '火', '水', '木', '金', '土'];
         const wdIdx = d.getDay();
         const wdClass = wdIdx === 0 ? 'sunday' : wdIdx === 6 ? 'saturday' : '';
 
-        // ヘッダー
-        const display = document.getElementById('dailyDateDisplay');
-        display.innerHTML = `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()} <span class="daily-weekday ${wdClass}">(${weekdays[wdIdx]})</span>`;
+        // ヘッダー → 共通ツールバーに反映
+        if (typeof updateGlobalToolbar === 'function') updateGlobalToolbar();
 
         const container = document.getElementById('dailyContainer');
         container.innerHTML = '';
@@ -5049,7 +5088,7 @@ PRO状態: ${data.isPro ? '✅' : '❌'}
         this.render();
       },
 
-      // タイムラインセクション（シンプル版：タップで入力・タップで削除）
+      // タイムラインセクション（時間帯ごとに枠を増減）
       renderTimelineSection() {
         const section = document.createElement('div');
         section.className = 'daily-section';
@@ -5060,38 +5099,58 @@ PRO状態: ${data.isPro ? '✅' : '❌'}
         const timeline = document.createElement('div');
         timeline.className = 'daily-timeline';
 
-        for (let i = 0; i < 48; i++) {
-          const hour = Math.floor(i / 2);
-          const isHour = (i % 2 === 0);
-
-          const row = document.createElement('div');
-          row.className = 'daily-time-row';
+        for (let h = 0; h < 24; h++) {
+          const slots = this.timeEvents[String(h)] || [''];
+          const hourGroup = document.createElement('div');
+          hourGroup.className = 'daily-hour-group';
 
           const label = document.createElement('div');
           label.className = 'daily-time-label';
-          label.textContent = isHour ? `${hour}:00` : '';
+          label.textContent = `${h}:00`;
 
-          const block = document.createElement('div');
-          block.className = 'daily-time-block';
-          block.dataset.index = i;
+          const slotsDiv = document.createElement('div');
+          slotsDiv.className = 'daily-hour-slots';
 
-          const eventText = this.timeEvents[String(i)];
-          if (eventText) {
-            block.classList.add('has-event');
-            const span = document.createElement('span');
-            span.className = 'event-text';
-            span.textContent = eventText;
-            block.appendChild(span);
-            // タップで削除
-            block.onclick = () => this.onEventBlockTap(i);
-          } else {
-            // 空ブロック：タップで入力
-            block.onclick = () => this.onEmptyBlockTap(i);
-          }
+          slots.forEach((text, slotIdx) => {
+            const slot = document.createElement('div');
+            slot.className = 'daily-time-slot' + (text ? ' has-event' : '');
 
-          row.appendChild(label);
-          row.appendChild(block);
-          timeline.appendChild(row);
+            if (text) {
+              const span = document.createElement('span');
+              span.className = 'slot-text';
+              span.textContent = text;
+              slot.appendChild(span);
+            }
+
+            // タップで入力/編集
+            slot.onclick = () => this.onSlotTap(h, slotIdx);
+
+            // 長押しでメニュー
+            let pressTimer = null;
+            let moved = false;
+            const onDown = (e) => {
+              moved = false;
+              pressTimer = setTimeout(() => {
+                pressTimer = null;
+                this.showSlotMenu(h, slotIdx, slot);
+              }, 500);
+            };
+            const onMove = () => { if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; } moved = true; };
+            const onUp = () => { if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; } };
+
+            slot.addEventListener('touchstart', onDown, { passive: true });
+            slot.addEventListener('touchmove', onMove, { passive: true });
+            slot.addEventListener('touchend', onUp);
+            slot.addEventListener('mousedown', onDown);
+            slot.addEventListener('mousemove', onMove);
+            slot.addEventListener('mouseup', onUp);
+
+            slotsDiv.appendChild(slot);
+          });
+
+          hourGroup.appendChild(label);
+          hourGroup.appendChild(slotsDiv);
+          timeline.appendChild(hourGroup);
         }
 
         body.appendChild(timeline);
@@ -5099,50 +5158,50 @@ PRO状態: ${data.isPro ? '✅' : '❌'}
         return section;
       },
 
-      // 空ブロックタップ → インライン入力
-      onEmptyBlockTap(index) {
-        // 既存の入力欄があれば即確定して閉じる
+      // スロットタップ → インライン入力
+      onSlotTap(hour, slotIdx) {
+        // 既存入力を確定
         const existing = document.getElementById('dailyInlineInput');
-        if (existing) {
-          const text = existing.value.trim();
-          if (text && existing._confirmFn) {
-            existing._confirmFn();
-            return; // 確定後re-renderされるので次タップで開く
-          }
-          existing.remove();
+        if (existing && existing._confirmFn) {
+          existing._confirmFn();
+          return;
         }
 
-        const block = document.querySelector(`.daily-time-block[data-index="${index}"]`);
-        if (!block) return;
+        const slots = this.timeEvents[String(hour)] || [''];
+        const currentText = slots[slotIdx] || '';
 
-        const hour = Math.floor(index / 2);
-        const min = (index % 2) * 30;
-        const timeStr = `${hour}:${String(min).padStart(2, '0')}`;
+        // 対象スロット要素を探す
+        const hourGroups = document.querySelectorAll('.daily-hour-group');
+        const group = hourGroups[hour];
+        if (!group) return;
+        const slotEls = group.querySelectorAll('.daily-time-slot');
+        const slotEl = slotEls[slotIdx];
+        if (!slotEl) return;
 
-        block.innerHTML = '';
-        block.classList.add('inline-editing');
+        slotEl.innerHTML = '';
+        slotEl.classList.add('inline-editing');
 
         const input = document.createElement('input');
         input.type = 'text';
         input.id = 'dailyInlineInput';
         input.className = 'daily-inline-input';
-        input.placeholder = timeStr;
+        input.placeholder = `${hour}:00`;
+        if (currentText) input.value = currentText;
 
-        block.appendChild(input);
-        setTimeout(() => input.focus(), 30);
+        slotEl.appendChild(input);
+        setTimeout(() => { input.focus(); if (currentText) input.select(); }, 30);
 
         const self = this;
-
         const doConfirm = async () => {
           const text = input.value.trim();
-          if (text) {
-            self.timeEvents[String(index)] = text;
-            await self.saveTimeEvents();
-          }
+          if (!self.timeEvents[String(hour)]) self.timeEvents[String(hour)] = [''];
+          self.timeEvents[String(hour)][slotIdx] = text;
+          // 空の配列なら消す
+          self.cleanupHour(hour);
+          await self.saveTimeEvents();
           self.render();
         };
 
-        // 確定関数を入力要素に紐付け（外部から呼べるように）
         input._confirmFn = doConfirm;
 
         input.onkeydown = (e) => {
@@ -5156,40 +5215,115 @@ PRO状態: ${data.isPro ? '✅' : '❌'}
         };
       },
 
-      // イベントブロックタップ → 削除確認
-      onEventBlockTap(index) {
-        const eventText = this.timeEvents[String(index)];
-        if (!eventText) return;
+      // 長押しメニュー
+      showSlotMenu(hour, slotIdx, slotEl) {
+        // 既存メニュー消す
+        const old = document.getElementById('dailySlotMenu');
+        if (old) old.remove();
 
-        // 連続ブロック範囲を探す
-        let start = index;
-        while (start > 0 && this.timeEvents[String(start - 1)] === eventText) start--;
-        let end = index;
-        while (end < 47 && this.timeEvents[String(end + 1)] === eventText) end++;
+        const menu = document.createElement('div');
+        menu.id = 'dailySlotMenu';
+        menu.className = 'daily-slot-menu';
 
-        const startH = Math.floor(start / 2);
-        const startM = (start % 2) * 30;
-        const endH = Math.floor((end + 1) / 2);
-        const endM = ((end + 1) % 2) * 30;
-        const range = `${startH}:${String(startM).padStart(2,'0')}〜${endH}:${String(endM).padStart(2,'0')}`;
+        const slots = this.timeEvents[String(hour)] || [''];
+        const hasText = slots[slotIdx] && slots[slotIdx].trim();
 
-        if (confirm(`「${eventText}」(${range}) を削除しますか？`)) {
-          for (let i = start; i <= end; i++) {
-            delete this.timeEvents[String(i)];
-          }
-          this.saveTimeEvents();
-          this.render();
+        let html = `<button class="dsm-btn dsm-add" data-action="add">＋ 枠を追加</button>`;
+        if (hasText || slots.length > 1) {
+          html += `<button class="dsm-btn dsm-delete" data-action="delete">🗑 この枠を削除</button>`;
         }
+        html += `<button class="dsm-btn dsm-cancel" data-action="cancel">✕ 閉じる</button>`;
+        menu.innerHTML = html;
+
+        // 位置
+        const rect = slotEl.getBoundingClientRect();
+        menu.style.position = 'fixed';
+        menu.style.top = Math.min(rect.bottom + 4, window.innerHeight - 140) + 'px';
+        menu.style.left = Math.max(16, rect.left) + 'px';
+        menu.style.zIndex = '300';
+
+        document.body.appendChild(menu);
+
+        menu.querySelectorAll('.dsm-btn').forEach(btn => {
+          btn.onclick = () => {
+            const action = btn.dataset.action;
+            menu.remove();
+            if (action === 'add') this.addSlot(hour, slotIdx);
+            if (action === 'delete') this.deleteSlot(hour, slotIdx);
+          };
+        });
+
+        // 外側タップで閉じる
+        const close = (ev) => {
+          if (!menu.contains(ev.target)) {
+            menu.remove();
+            document.removeEventListener('touchstart', close, true);
+            document.removeEventListener('mousedown', close, true);
+          }
+        };
+        setTimeout(() => {
+          document.addEventListener('touchstart', close, true);
+          document.addEventListener('mousedown', close, true);
+        }, 50);
+      },
+
+      async addSlot(hour, afterIdx) {
+        if (!this.timeEvents[String(hour)]) this.timeEvents[String(hour)] = [''];
+        this.timeEvents[String(hour)].splice(afterIdx + 1, 0, '');
+        await this.saveTimeEvents();
+        this.render();
+      },
+
+      async deleteSlot(hour, slotIdx) {
+        if (!this.timeEvents[String(hour)]) return;
+        this.timeEvents[String(hour)].splice(slotIdx, 1);
+        this.cleanupHour(hour);
+        await this.saveTimeEvents();
+        this.render();
+      },
+
+      // 空配列の整理
+      cleanupHour(hour) {
+        const slots = this.timeEvents[String(hour)];
+        if (!slots) return;
+        // 全部空なら1枠だけ残す（表示用）ではなく消す
+        const hasContent = slots.some(s => s && s.trim());
+        if (!hasContent) {
+          delete this.timeEvents[String(hour)];
+        }
+      },
+
+      // 旧データ（index:text形式）→ 新データ（hour:[texts]形式）にマイグレーション
+      migrateTimeEvents() {
+        const keys = Object.keys(this.timeEvents);
+        if (keys.length === 0) return;
+        // 旧形式かチェック：keyが数値で値が文字列
+        const isOldFormat = keys.some(k => typeof this.timeEvents[k] === 'string');
+        if (!isOldFormat) return;
+
+        const newData = {};
+        keys.forEach(k => {
+          const val = this.timeEvents[k];
+          if (typeof val === 'string') {
+            const hour = Math.floor(parseInt(k) / 2);
+            if (!newData[String(hour)]) newData[String(hour)] = [];
+            if (!newData[String(hour)].includes(val)) {
+              newData[String(hour)].push(val);
+            }
+          }
+        });
+        this.timeEvents = newData;
+        this.saveTimeEvents();
       },
 
       // タイムラインの現在時刻にスクロール
       scrollToNow() {
         const now = new Date();
         if (this.getDateKey() === this.getDateKey(now)) {
-          const idx = now.getHours() * 2 + (now.getMinutes() >= 30 ? 1 : 0);
-          const targetRow = document.querySelector(`.daily-time-block[data-index="${Math.max(0, idx - 2)}"]`);
-          if (targetRow) {
-            setTimeout(() => targetRow.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100);
+          const hourGroups = document.querySelectorAll('.daily-hour-group');
+          const targetH = Math.max(0, now.getHours() - 1);
+          if (hourGroups[targetH]) {
+            setTimeout(() => hourGroups[targetH].scrollIntoView({ behavior: 'smooth', block: 'center' }), 100);
           }
         }
       }
